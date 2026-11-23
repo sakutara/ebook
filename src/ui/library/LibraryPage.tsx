@@ -28,6 +28,14 @@ const FILTERS = [
   { value: 'saved', label: 'Đã lưu', icon: 'filter-saved' },
 ] as const
 
+function cacheErrorText(e: unknown): string {
+  const kind = e instanceof CacheError ? e.kind : 'network'
+  if (kind === 'offline') return 'Cần kết nối mạng để tải truyện này lần đầu'
+  if (kind === 'quota') return 'Bộ nhớ đầy — hãy xoá bớt truyện đã lưu'
+  if (kind === 'not-found') return 'Không tìm thấy truyện'
+  return 'Không tải được truyện'
+}
+
 const pad = (n: number) => String(n).padStart(2, '0')
 
 function statusLine(s: CatalogStatus): string | null {
@@ -151,16 +159,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
       await getBookFile({ db, api }, id, { onProgress: (pct) => setPct(id, pct) })
       openReader(id)
     } catch (e) {
-      const kind = e instanceof CacheError ? e.kind : 'network'
-      showToast(
-        kind === 'offline'
-          ? 'Cần kết nối mạng để tải truyện này lần đầu'
-          : kind === 'quota'
-            ? 'Bộ nhớ đầy — hãy xoá bớt truyện đã lưu'
-            : kind === 'not-found'
-              ? 'Không tìm thấy truyện'
-              : 'Không tải được truyện',
-      )
+      showToast(cacheErrorText(e))
     } finally {
       setPct(id, null)
     }
@@ -168,6 +167,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
 
   const onDownload = async (card: CardModel) => {
     const { book } = card
+    if (preparing[book.id] !== undefined) return
     const useLocal = card.cached && (!card.stale || !syncStatus.value.online || card.localOnly)
     if (useLocal) {
       const row = await db.bookFiles.get(book.id)
@@ -176,9 +176,22 @@ export function LibraryPage({ services }: LibraryPageProps) {
         return
       }
     }
-    location.assign(
-      api?.downloadUrl(book.id) ?? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(book.id)}`,
-    )
+    if (!api || !syncStatus.value.online) {
+      location.assign(
+        api?.downloadUrl(book.id) ?? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(book.id)}`,
+      )
+      return
+    }
+    // Uncached or stale: fetch into the cache once, then save that same copy to the device.
+    setPct(book.id, 0)
+    try {
+      const res = await getBookFile({ db, api }, book.id, { onProgress: (pct) => setPct(book.id, pct) })
+      saveBlob(res.blob, book.name)
+    } catch (e) {
+      showToast(cacheErrorText(e))
+    } finally {
+      setPct(book.id, null)
+    }
   }
 
   const line = statusLine(status)

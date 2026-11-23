@@ -314,16 +314,23 @@ describe('library.download.cached', () => {
 })
 
 describe('library.download.remote', () => {
-  it('library.download.remote: an uncached book online navigates to the Drive download URL', async () => {
+  it('library.download.remote: an uncached book online is fetched into the cache, then saved', async () => {
     await seed([book('d', 'Bản d')])
     const assign = vi.fn()
-    // jsdom's Location.assign is non-configurable, so the whole location object is stubbed.
     vi.stubGlobal('location', { ...window.location, assign, hash: '' })
-    render(<LibraryPage services={makeServices({ config: true, api: true }) as any} />)
+    const created: Blob[] = []
+    ;(URL as any).createObjectURL = (b: Blob) => (created.push(b), 'blob:x')
+    ;(URL as any).revokeObjectURL = () => {}
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const services = makeServices({ config: true, api: true }) as any
+    services.api.fetchBook = vi.fn(async () => new Blob(['epub'], { type: 'application/epub+zip' }))
+    render(<LibraryPage services={services} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
     fireEvent.click(within(card('Bản d')).getByRole('button', { name: 'Tải' }))
-    expect(assign).toHaveBeenCalledWith('https://drive.google.com/uc?export=download&id=d')
+    await waitFor(() => expect(created).toHaveLength(1))
+    expect(assign).not.toHaveBeenCalled()
+    expect(await db.bookFiles.get('d')).toBeDefined()
   })
 
   it('library.download.remote: builds the Drive URL inline when there is no api', async () => {

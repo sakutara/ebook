@@ -75,7 +75,7 @@ export function BookCard({ card, online, getCover, preparing, onRead, onDownload
         ) : (
           <IconButton icon="cloud-off" label="Cần mạng để đọc" disabled />
         )}
-        {canDownload ? (
+        {preparing !== undefined ? null : canDownload ? (
           <IconButton icon="download" label="Tải" onClick={() => onDownload(card)} />
         ) : (
           <IconButton icon="cloud-off" label="Cần mạng để tải" disabled />
