@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test'
-import { makeLibrary, mockDrive } from './drive-mock'
+import { makeLibrary, mockR2 } from './r2-mock'
 
 const TABS = 'Thanh điều hướng'
 const SIDE = 'Điều hướng chính'
@@ -47,7 +47,7 @@ async function outboxCount(page: Page): Promise<number> {
 }
 
 test('story-request.layout.narrow: fields are full width, stacked, with no horizontal scroll', async ({ page, context }, info) => {
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./#/request')
   await expect(page.getByLabel(TITLE_LABEL, { exact: true })).toBeVisible()
 
@@ -65,7 +65,7 @@ test('story-request.layout.narrow: fields are full width, stacked, with no horiz
 })
 
 test('story-request.layout.wide: form is at most 40rem and the "Đã yêu cầu" list sits beside it', async ({ page, context }, info) => {
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./#/request')
   await expect(page.getByLabel(TITLE_LABEL, { exact: true })).toBeVisible()
 
@@ -79,7 +79,7 @@ test('story-request.layout.wide: form is at most 40rem and the "Đã yêu cầu"
 })
 
 test('app-shell.routes.request: tapping the Yêu cầu nav item opens #/request and marks it current', async ({ page, context }, info) => {
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./')
   const nav = page.getByRole('navigation', { name: info.project.name === 'mobile' ? TABS : SIDE })
   const link = nav.getByRole('link', { name: 'Yêu cầu', exact: true })
@@ -91,7 +91,7 @@ test('app-shell.routes.request: tapping the Yêu cầu nav item opens #/request 
 })
 
 test('app-shell.layout.narrow / app-shell.layout.wide: three nav items in order, bottom tabs on mobile and side nav on desktop', async ({ page, context }, info) => {
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./')
   const tabs = page.getByRole('navigation', { name: TABS })
   const side = page.getByRole('navigation', { name: SIDE })
@@ -111,7 +111,7 @@ test('app-shell.layout.narrow / app-shell.layout.wide: three nav items in order,
 
 test('story-request.submit.online: one POST with the expected body, row marked sent and empty outbox', async ({ page, context }) => {
   const posts = await interceptForm(context)
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./')
   await page.evaluate(() => navigator.serviceWorker.ready)
   await page.goto('./#/request')
@@ -134,7 +134,7 @@ test('story-request.submit.online: one POST with the expected body, row marked s
 
 test('story-request.submit.offline + story-request.submit.resync: offline submit shows Chờ gửi, then one POST and Đã gửi once back online', async ({ page, context }, info) => {
   const posts = await interceptForm(context)
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./')
   await page.evaluate(() => navigator.serviceWorker.ready)
   await page.goto('./#/request')

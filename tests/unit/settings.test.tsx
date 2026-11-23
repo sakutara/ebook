@@ -66,7 +66,7 @@ async function seed(d: AppDB) {
 
 function renderPage(overrides: Partial<SettingsProps> = {}) {
   const onRefresh = vi.fn()
-  const utils = render(<SettingsPage db={db} onRefresh={onRefresh} {...overrides} />)
+  const utils = render(<SettingsPage db={db} config={null} onRefresh={onRefresh} {...overrides} />)
   return { ...utils, onRefresh }
 }
 
@@ -190,5 +190,18 @@ describe('settings', () => {
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe('Đã nhập 2 mục')
     })
+  })
+
+  it('app-shell.config.settings: source section shows the worker host', () => {
+    renderPage({ config: { baseUrl: 'https://tu-truyen.example.workers.dev' } })
+    const section = screen.getByRole('region', { name: 'Máy chủ truyện' })
+    expect(within(section).getByText('tu-truyen.example.workers.dev')).toBeTruthy()
+    expect(screen.queryByText(/Google Drive/)).toBeNull()
+  })
+
+  it('app-shell.config.settings: source section says not configured when config is null', () => {
+    renderPage({ config: null })
+    const section = screen.getByRole('region', { name: 'Máy chủ truyện' })
+    expect(within(section).getByText('Chưa cấu hình')).toBeTruthy()
   })
 })

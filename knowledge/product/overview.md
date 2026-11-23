@@ -1,7 +1,7 @@
 ---
 type: Product
 title: Tủ Truyện
-description: PWA that lists EPUB books from one public Google Drive folder, lets the reader download or read them in-app, and keeps downloaded books and reading position on the device.
+description: PWA that lists EPUB books published to a Cloudflare R2 bucket, lets the reader download or read them in-app, and keeps downloaded books and reading position on the device.
 status: stable
 generated: { by: claude-opus-5-5, at: 2026-11-23T04:50:00Z }
 verified:
@@ -23,8 +23,8 @@ removed on Drive.
 
 # Source of books
 
-A single public Drive folder holding only `.epub` files, flat (no sub-folders). See
-[Drive source](/domain/drive-source.md) and [Book](/domain/book.md).
+An R2 bucket served by a Cloudflare Worker, one folder per book (EPUB, cover, metadata), filled with the R2 deployer. See
+[R2 source](/domain/r2-source.md), [Genre](/domain/genre.md) and [Book](/domain/book.md).
 
 # Hosting
 

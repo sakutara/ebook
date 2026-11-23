@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { mockDrive } from './drive-mock'
+import { epubPath, mockR2 } from './r2-mock'
 import { bookCard, marker, openFromLibrary, waitForReady } from './reader-helpers'
 
-const CACHED = { id: 'a', name: 'Sách Mẫu.epub', fixture: 'book-v1.epub' }
-const UNCACHED = { id: 'u', name: 'Truyện Khác.epub', fixture: 'book-v1.epub' }
+const CACHED = { id: 'sach-mau', title: 'Sách Mẫu', fixture: 'book-v1.epub' }
+const UNCACHED = { id: 'truyen-khac', title: 'Truyện Khác', fixture: 'book-v1.epub' }
 const OFFLINE_MESSAGE = 'Cần kết nối mạng để tải truyện này lần đầu'
 
 test('app-shell.offline.reload: shell renders offline after first visit', async ({ page, context }) => {
@@ -25,34 +25,54 @@ test('app-shell.layout.narrow / app-shell.layout.wide: bottom tabs on mobile, si
 })
 
 test('app-shell.offline.reload: a cached book still renders after a reload with the network down', async ({ page, context }) => {
-  await mockDrive(context, [CACHED])
+  await mockR2(context, { books: [CACHED] })
   await openFromLibrary(page, bookCard(page), CACHED.id)
   await expect.poll(() => marker(page)).toMatchObject({ chapter: 1 })
   await page.evaluate(() => navigator.serviceWorker.ready)
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page).toHaveURL(/#\/read\/a$/)
+  await expect(page).toHaveURL(/#\/read\/sach-mau$/)
   await waitForReady(page)
   await expect.poll(() => marker(page)).toMatchObject({ chapter: 1 })
 })
 
 test('cache.fetch.offline: an uncached book shows the offline message and makes no media request', async ({ page, context }) => {
-  const drive = await mockDrive(context, [CACHED, UNCACHED])
+  const r2 = await mockR2(context, { books: [CACHED, UNCACHED] })
   await page.goto('./')
   const card = bookCard(page, 'Truyện Khác')
   await expect(card).toBeVisible()
   await page.waitForLoadState('networkidle')
   await page.evaluate(() => navigator.serviceWorker.ready)
-  const mediaBefore = drive.mediaRequests(UNCACHED.id)
-  const requestsBefore = drive.requests.length
+  const epubBefore = r2.count(epubPath(UNCACHED.id))
+  const requestsBefore = r2.requests.length
 
   await context.setOffline(true)
   await page.evaluate(() => {
-    location.hash = '#/read/u'
+    location.hash = '#/read/truyen-khac'
   })
-  await expect(page).toHaveURL(/#\/read\/u$/)
+  await expect(page).toHaveURL(/#\/read\/truyen-khac$/)
   await expect(page.getByText(OFFLINE_MESSAGE, { exact: true })).toBeVisible()
-  expect(drive.mediaRequests(UNCACHED.id)).toBe(mediaBefore)
-  expect(drive.requests.length).toBe(requestsBefore)
+  expect(r2.count(epubPath(UNCACHED.id))).toBe(epubBefore)
+  expect(r2.requests.length).toBe(requestsBefore)
+})
+
+test('catalog.sync.resync: a device that started offline syncs on the online event and shows new books', async ({ page, context }) => {
+  const NEW = { id: 'truyen-moi', title: 'Truyện Mới', fixture: 'book-v1.epub' }
+  const r2 = await mockR2(context, { books: [CACHED] })
+  await page.goto('./')
+  await page.evaluate(() => navigator.serviceWorker.ready)
+  await page.reload()
+  await expect(bookCard(page)).toBeVisible()
+
+  // Start offline: the stored catalog is shown and no sync request is made.
+  await context.setOffline(true)
+  await page.reload()
+  await expect(bookCard(page)).toBeVisible()
+  const catalogBefore = r2.count('/catalog.json')
+
+  r2.setBooks([CACHED, NEW])
+  await context.setOffline(false)
+  await expect(bookCard(page, NEW.title)).toBeVisible()
+  expect(r2.count('/catalog.json')).toBeGreaterThan(catalogBefore)
 })

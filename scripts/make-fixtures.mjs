@@ -159,7 +159,10 @@ ${items}
 `
 }
 
-function contentOpf({ uuid, chapters, hasCover }) {
+// Default Dublin Core fields (title + language) for the generic fixtures.
+const DEFAULT_DC = '<dc:title>Sách Mẫu</dc:title>\n<dc:language>vi</dc:language>'
+
+function contentOpf({ uuid, chapters, hasCover, dc = DEFAULT_DC }) {
   const manifestChapters = chapters.map((c) => `<item id="c${c}" href="${chapHref(c)}" media-type="application/xhtml+xml"/>`).join('\n')
   const cover = hasCover
     ? '\n<item id="cover-img" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>'
@@ -169,8 +172,7 @@ function contentOpf({ uuid, chapters, hasCover }) {
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="vi">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:identifier id="bookid">urn:uuid:${uuid}</dc:identifier>
-<dc:title>Sách Mẫu</dc:title>
-<dc:language>vi</dc:language>
+${dc}
 <meta property="dcterms:modified">2026-11-01T00:00:00Z</meta>
 </metadata>
 <manifest>
@@ -196,13 +198,14 @@ const CONTAINER_XML = `<?xml version="1.0" encoding="UTF-8"?>
 //  uuid: fixed identifier; hasCover: include cover.jpg + manifest item;
 //  omitChapters: chapter numbers to leave out entirely;
 //  chapter5Paras: override the paragraphs of chapter 5.
-function buildBook({ uuid, hasCover = true, omitChapters = [], chapter5Paras = null }) {
+//  dc: Dublin Core lines for the <metadata> block (default: title + language).
+function buildBook({ uuid, hasCover = true, omitChapters = [], chapter5Paras = null, dc = undefined }) {
   const chapters = []
   for (let c = 1; c <= CHAPTER_COUNT; c++) if (!omitChapters.includes(c)) chapters.push(c)
 
   const files = [['mimetype', enc.encode('application/epub+zip')]]
   files.push(['META-INF/container.xml', enc.encode(CONTAINER_XML)])
-  files.push(['OEBPS/content.opf', enc.encode(contentOpf({ uuid, chapters, hasCover }))])
+  files.push(['OEBPS/content.opf', enc.encode(contentOpf({ uuid, chapters, hasCover, dc }))])
   files.push(['OEBPS/nav.xhtml', enc.encode(navXhtml(chapters))])
   for (const c of chapters) {
     let paras
@@ -228,6 +231,18 @@ const BOOKS = {
   },
   'book-v4.epub': { uuid: '0e6f1a20-0000-4000-8000-000000000004', omitChapters: [5] },
   'book-nocover.epub': { uuid: '0e6f1a20-0000-4000-8000-000000000005', hasCover: false },
+  // Metadata fixture for the deployer: HTML description (escaped in the OPF), two subjects, one creator.
+  'book-meta.epub': {
+    uuid: '0e6f1a20-0000-4000-8000-000000000006',
+    dc: [
+      '<dc:title>Phàm Nhân Tu Tiên</dc:title>',
+      '<dc:creator>Vong Ngữ</dc:creator>',
+      '<dc:subject>Tiên Hiệp</dc:subject>',
+      '<dc:subject>xianxia</dc:subject>',
+      '<dc:description>&lt;p&gt;Một &lt;b&gt;phàm nhân&lt;/b&gt; bước vào con đường tu tiên.&lt;/p&gt;</dc:description>',
+      '<dc:language>vi</dc:language>',
+    ].join('\n'),
+  },
 }
 
 mkdirSync(OUT_DIR, { recursive: true })

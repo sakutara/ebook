@@ -34,3 +34,8 @@
 
 html { -webkit-text-size-adjust: 100%; }
 input, select, textarea { font-size: max(16px, 1em); }
+
+@keyframes progress-indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}

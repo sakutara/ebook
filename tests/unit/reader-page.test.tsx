@@ -116,7 +116,7 @@ function harness(): Harness {
   const getFile = vi.fn(async (_d: CacheDeps, _id: string, _o?: { onProgress?: (p: number) => void }) => okFile())
   const onNotice = vi.fn()
   const onBack = vi.fn()
-  const cacheDeps: CacheDeps = { db, api: null }
+  const cacheDeps: CacheDeps = { db, source: null }
   const deps: ReaderDeps = {
     db,
     cacheDeps,
@@ -189,6 +189,7 @@ describe('reader page', () => {
     h.getFile.mockRejectedValueOnce(new CacheError('network'))
     render(<ReaderPage id="b1" {...h.deps} />)
     expect(await screen.findByText('Không tải được truyện')).toBeTruthy()
+    expect(screen.getByText('Không tải được truyện, thử lại sau')).toBeTruthy()
     const retry = screen.getByRole('button', { name: 'Thử lại' })
     expect(retry.querySelector('svg')).not.toBeNull()
     fireEvent.click(retry)
@@ -204,6 +205,36 @@ describe('reader page', () => {
     expect(await screen.findByText('Bộ nhớ đầy — hãy xoá bớt truyện đã lưu')).toBeTruthy()
     const link = screen.getByRole('link', { name: 'Mở Cài đặt' })
     expect(link.getAttribute('href')).toBe('#/settings')
+  })
+
+  it('reader.open.progress: loading shows a progressbar with the reported percent', async () => {
+    await db.books.put(bookRow())
+    const h = harness()
+    h.getFile.mockImplementationOnce(async (_d: CacheDeps, _id: string, o?: { onProgress?: (p: number) => void }) => {
+      o?.onProgress?.(40)
+      return new Promise<GetResult>(() => {})
+    })
+    render(<ReaderPage id="b1" {...h.deps} />)
+    // The bar is mounted from the first render (0 %), so wait for the reported value.
+    await waitFor(() =>
+      expect(screen.getByRole('progressbar', { name: 'Đang tải truyện' }).getAttribute('aria-valuenow')).toBe('40'),
+    )
+    expect(screen.getByText('Đang tải 40%')).toBeTruthy()
+  })
+
+  it('reader.open.progress: indeterminate progress (null) has no aria-valuenow', async () => {
+    await db.books.put(bookRow())
+    const h = harness()
+    h.getFile.mockImplementationOnce(async (_d: CacheDeps, _id: string, o?: { onProgress?: (p: number | null) => void }) => {
+      o?.onProgress?.(null)
+      return new Promise<GetResult>(() => {})
+    })
+    render(<ReaderPage id="b1" {...h.deps} />)
+    await waitFor(() =>
+      expect(
+        screen.getByRole('progressbar', { name: 'Đang tải truyện' }).hasAttribute('aria-valuenow'),
+      ).toBe(false),
+    )
   })
 
   it('cache.stale.offline: usedOld triggers the old-copy notice', async () => {

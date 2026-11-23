@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
-import { makeLibrary, mockDrive } from './drive-mock'
+import { makeLibrary, mockR2 } from './r2-mock'
 import { backToLibrary, bookCard, frameStyle, marker, openBook, openFromLibrary, showChrome } from './reader-helpers'
 
-const READER_BOOK = { id: 'b1', name: 'Sách Mẫu.epub', fixture: 'book-v1.epub' }
+const READER_BOOK = { id: 'sach-mau', title: 'Sách Mẫu', fixture: 'book-v1.epub' }
 const FILES = [...makeLibrary(3), READER_BOOK]
 const DARK_BG = 'rgb(17, 24, 39)'
 
@@ -94,7 +94,7 @@ async function cacheBookAndOpenSettings(page: Page): Promise<void> {
 }
 
 test('app-shell.icons.icon-only: library, reader sheet and settings action buttons carry no visible text', async ({ page, context }) => {
-  await mockDrive(context, FILES)
+  await mockR2(context, { books: FILES })
   await page.goto('./')
   await expect(bookCard(page)).toBeVisible()
   await expectIconOnly(page, 'library')
@@ -114,7 +114,7 @@ test('app-shell.icons.icon-only: library, reader sheet and settings action butto
 })
 
 test('app-shell.icons.labelled-exceptions: nav links, filter radios and the confirm dialog keep icon and text', async ({ page, context }) => {
-  await mockDrive(context, FILES)
+  await mockR2(context, { books: FILES })
   await page.goto('./')
   await expect(bookCard(page)).toBeVisible()
 
@@ -147,7 +147,7 @@ test('app-shell.icons.labelled-exceptions: nav links, filter radios and the conf
 })
 
 test('app-shell.icons.offline: nav icons render offline and no svg file is requested', async ({ page, context }) => {
-  await mockDrive(context, FILES)
+  await mockR2(context, { books: FILES })
   await page.goto('./')
   await expect(bookCard(page)).toBeVisible()
   await page.evaluate(() => navigator.serviceWorker.ready)
@@ -165,7 +165,7 @@ test('app-shell.icons.offline: nav icons render offline and no svg file is reque
 })
 
 test('app-shell.icons.theme: in the dark reader the top bar icon uses the same colour as the title', async ({ page, context }) => {
-  await mockDrive(context, FILES)
+  await mockR2(context, { books: FILES })
   await openFromLibrary(page)
   await expect.poll(() => marker(page)).not.toBeNull()
   await showChrome(page)
@@ -195,7 +195,7 @@ test('app-shell.icons.theme: in the dark reader the top bar icon uses the same c
 
 test('app-shell.icons.layout.narrow: icon-only buttons are at least 44 px and 8 px apart on mobile', async ({ page, context }, testInfo) => {
   if (testInfo.project.name === 'mobile') {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await page.goto('./')
     await expect(bookCard(page)).toBeVisible()
     expect(await page.evaluate(layoutProblems, 'article'), 'library card actions').toEqual([])
@@ -208,7 +208,7 @@ test('app-shell.icons.layout.narrow: icon-only buttons are at least 44 px and 8 
 
 test('app-shell.icons.layout.wide: labels are native tooltips and the focused icon button shows an outline', async ({ page, context }, testInfo) => {
   if (testInfo.project.name === 'desktop') {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await page.goto('./')
     await expect(bookCard(page)).toBeVisible()
 

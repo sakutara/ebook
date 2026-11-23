@@ -13,14 +13,18 @@ verified:
 
 | field | type | notes |
 |---|---|---|
-| id | string | primary key = Drive file id |
+| id | string | primary key = R2 slug (Drive file id for pre-v4 rows) |
 | name | string | Drive file name, e.g. `Ten truyen.epub` |
 | title | string | display title (see [Book](/domain/book.md)) |
 | normTitle | string | index; search + re-attachment key |
+| author | string | from metadata.json; `""` when unknown (v4) |
+| normAuthor | string | `normalize(author)`; search + author filter (v4) |
+| genres | string[] | display names, see [Genre](/domain/genre.md) (v4) |
+| description | string | from metadata.json (v4) |
 | size | number | bytes (Drive returns a string; parse) |
 | modifiedTime | number | epoch ms (parse Drive RFC 3339) |
 | md5 | string | Drive `md5Checksum` |
-| inDrive | 0 \| 1 | index; 0 = gone from Drive but kept (local-only) |
+| inDrive | 0 \| 1 | index; 1 = listed in the R2 catalog; 0 = gone but kept (local-only). Name kept from the Drive era |
 | lastSeenAt | number | epoch ms of the catalog sync that last listed it |
 | updatedAt | number | epoch ms |
 
@@ -33,6 +37,7 @@ Not synced through the outbox: Drive is the source of truth; this is a cache of 
 # Versions
 
 - v2 (add-ebook-library-reader): table created
+- v4 (move-books-to-r2): author, normAuthor, genres, description added; rows default to empty
 
 # Examples
 

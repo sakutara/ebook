@@ -43,7 +43,6 @@ describe('db.v2', () => {
       outbox: { primKey: 'id', indexes: ['createdAt'] },
       books: { primKey: 'id', indexes: ['inDrive', 'lastSeenAt', 'normTitle'] },
       bookFiles: { primKey: 'bookId', indexes: ['cachedAt', 'lastOpenedAt'] },
-      covers: { primKey: 'bookId', indexes: [] },
       progress: { primKey: 'id', indexes: ['bookId', 'normTitle', 'updatedAt'] },
     }
 
@@ -94,7 +93,6 @@ describe('db.v2', () => {
       cachedAt: 1,
       lastOpenedAt: 1,
     })
-    await db.covers.put({ bookId: 'b1', blob: null, md5: 'm', fetchedAt: 1 })
     await db.progress.put({
       id: 'b1',
       bookId: 'b1',

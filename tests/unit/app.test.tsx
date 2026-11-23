@@ -237,15 +237,14 @@ describe('toast', () => {
 })
 
 describe('services', () => {
-  it('services: getServices returns null api when config is missing', () => {
-    vi.stubEnv('VITE_GD_API_KEY', '')
-    vi.stubEnv('VITE_GD_FOLDER_ID', '')
+  it('services: source is null when the R2 config is missing', () => {
+    vi.stubEnv('VITE_R2_BASE_URL', '')
     const db = new AppDB('svc-test-' + Math.random())
     const s = createServices(db)
     expect(s.config).toBeNull()
-    expect(s.api).toBeNull()
+    expect(s.source).toBeNull()
     expect(s.cacheDeps.db).toBe(db)
-    expect(s.cacheDeps.api).toBeNull()
+    expect(s.cacheDeps.source).toBeNull()
     expect(typeof s.catalogSync.sync).toBe('function')
     expect(getServices()).toBe(getServices())
   })

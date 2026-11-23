@@ -14,3 +14,13 @@
 
 - add-ebook-library-reader: added domain/{drive-source,book,reading-position}.md, data/{books,book-files,covers,progress}.md, decisions 0002–0005, ui/{library,reader}.md; updated product/overview.md, playbooks/deploy.md
 - bootstrap: created knowledge bundle (product overview, decision 0001, app shell, deploy playbook)
+
+## 2026-11-23 — R2 + Worker
+- Owner chose Cloudflare R2 behind a Worker as the book source ([0008](/decisions/0008-r2-worker-book-source.md)); Drive docs deprecated.
+- Added [R2 source](/domain/r2-source.md), [Genre](/domain/genre.md), [Deploy the R2 Worker](/playbooks/deploy-r2-worker.md).
+- Changes `move-books-to-r2` (implementing) and `add-r2-deployer` (planned, awaiting approval).
+
+## 2026-11-24 — R2 deployer
+- `add-r2-deployer` implemented: local page `npm run deployer` (port 5174) parses EPUBs in the browser, generates covers when missing, guards against overwriting another book's slug, uploads 3 files per book and merges `catalog.json` with If-Match.
+- Verified end to end against `wrangler dev` (local R2): upload → catalog → library shows the new book.
+- Playbook: [Publish books](/playbooks/publish-books.md).

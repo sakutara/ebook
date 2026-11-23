@@ -1,22 +1,28 @@
 import { resolveBank } from './donate/banks'
 import { cleanNote } from './donate/vietqr'
 
-export interface DriveConfig {
-  apiKey: string
-  folderId: string
+export interface R2Config {
+  /** Worker base url, no trailing slash. */
+  baseUrl: string
 }
 
 /**
- * Reads the Google Drive configuration from Vite env vars.
- * Returns null when either value is empty, whitespace-only, or undefined.
+ * Reads the R2 (Cloudflare Worker) base url from Vite env vars.
+ * Accepts http(s) only. Returns null when empty, unparseable, or another scheme.
  */
-export function getDriveConfig(
+export function getR2Config(
   env: Record<string, string | undefined> = import.meta.env,
-): DriveConfig | null {
-  const apiKey = (env.VITE_GD_API_KEY ?? '').trim()
-  const folderId = (env.VITE_GD_FOLDER_ID ?? '').trim()
-  if (apiKey === '' || folderId === '') return null
-  return { apiKey, folderId }
+): R2Config | null {
+  const raw = (env.VITE_R2_BASE_URL ?? '').trim()
+  if (raw === '') return null
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+  return { baseUrl: raw.replace(/\/+$/, '') }
 }
 
 export interface DonateConfig {

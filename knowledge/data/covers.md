@@ -3,7 +3,7 @@ type: Data Store
 title: covers table
 description: Downscaled cover thumbnails extracted from each EPUB, or a marker that the book has none.
 tags: [library, cache, dexie]
-status: stable
+status: deprecated
 generated: { by: claude-opus-5-5, at: 2026-11-23T04:50:00Z }
 verified:
   - { by: human:owner, at: 2026-11-23T06:00:00Z }

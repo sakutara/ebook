@@ -7,16 +7,15 @@ export interface Setting { key: string; value: unknown; updatedAt: number }
 export interface SyncedRecord { id: string; updatedAt: number; deleted: 0 | 1 }
 
 export interface Book {
-  id: string; name: string; title: string; normTitle: string; size: number;
-  modifiedTime: number; md5: string; inDrive: 0 | 1; lastSeenAt: number; updatedAt: number
+  id: string; name: string; title: string; normTitle: string;
+  author: string; normAuthor: string; genres: string[]; description: string;
+  size: number; modifiedTime: number; md5: string; inDrive: 0 | 1; lastSeenAt: number; updatedAt: number
 }
 
 export interface BookFile {
   bookId: string; blob: Blob; size: number; md5: string;
   modifiedTime: number; cachedAt: number; lastOpenedAt: number
 }
-
-export interface Cover { bookId: string; blob: Blob | null; md5: string; fetchedAt: number }
 
 /** id === bookId */
 export interface Progress extends SyncedRecord {
@@ -36,7 +35,6 @@ export class AppDB extends Dexie {
   outbox!: EntityTable<OutboxOp, 'id'>
   books!: EntityTable<Book, 'id'>
   bookFiles!: EntityTable<BookFile, 'bookId'>
-  covers!: EntityTable<Cover, 'bookId'>
   progress!: EntityTable<Progress, 'id'>
   storyRequests!: EntityTable<StoryRequest, 'id'>
 
@@ -65,6 +63,22 @@ export class AppDB extends Dexie {
       progress: 'id, bookId, normTitle, updatedAt',
       storyRequests: 'id, &key, createdAt',
     })
+    this.version(4).stores({
+      settings: 'key',
+      outbox: 'id, createdAt',
+      books: 'id, normTitle, inDrive, lastSeenAt',
+      bookFiles: 'bookId, cachedAt, lastOpenedAt',
+      covers: null, // dropped
+      progress: 'id, bookId, normTitle, updatedAt',
+      storyRequests: 'id, &key, createdAt',
+    }).upgrade((tx) =>
+      tx.table('books').toCollection().modify((b) => {
+        b.author ??= ''
+        b.normAuthor ??= ''
+        b.genres ??= []
+        b.description ??= ''
+      }),
+    )
   }
 }
 
