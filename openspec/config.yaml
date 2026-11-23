@@ -1,0 +1,62 @@
+schema: spec-driven
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
+
+context: |
+  ## Purpose
+  Tủ Truyện is a PWA mini app that lists EPUB books from one public Google Drive folder, lets the user download them or read them in-app, and keeps downloaded books plus reading position on the device. Knowledge base: /knowledge/index.md.
+  
+  ## Constraints (hold until the owner explicitly lifts them; record lifts in /knowledge/decisions/)
+  - No backend, no server database. All data in IndexedDB on the user's device (Dexie).
+  - Offline-first: every feature works offline unless its spec states why not.
+  - Writes go through the outbox; the sync engine resyncs on reconnect (default adapter: local-only).
+  - Mobile-first fluid UI with Tailwind v4; PC layout from `lg` (side nav, two panes).
+  - Static build on the local machine, deployed to GitHub Pages (`gh-pages` branch), custom domain https://ebook.fiddle.vn/ (base path `/`, public/CNAME), hash routing.
+  - Every app ships JSON export/import and requests persistent storage.
+  
+  ## Tech stack
+  Vite · TypeScript strict · Preact · Tailwind v4 · Dexie · vite-plugin-pwa (Workbox) · Vitest + fake-indexeddb + @testing-library/preact · Playwright.
+  
+  ## Conventions
+  - Scenario IDs `<capability>.<behavior>.<variant>`; tests are named with them.
+  - Data-writing requirements need `.offline` and `.resync` scenarios; UI requirements need `.layout.narrow` and `.layout.wide`.
+  - Design and specs: Opus 5.5. Tests and code: Haiku 5.5 (`pwa-implementer`), strict TDD.
+
+rules:
+  proposal:
+    - State offline behaviour and list what is out of scope
+  specs:
+    - Scenario titles carry a dotted ID <capability>.<behavior>.<variant>
+    - Data-writing requirements include .offline and .resync scenarios
+    - UI requirements include .layout.narrow and .layout.wide scenarios
+  tasks:
+    - Each task lists Scenarios, Files, Test command, Done when

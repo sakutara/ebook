@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev-demo",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_DONATE_BANK=VCB",
+        "VITE_DONATE_ACCOUNT_NO=0123456789",
+        "VITE_DONATE_ACCOUNT_NAME=NGUYEN VAN A",
+        "VITE_REQUEST_FORM_ID=demo-form",
+        "VITE_REQUEST_ENTRY_TITLE=111",
+        "VITE_REQUEST_ENTRY_AUTHOR=222",
+        "npx", "vite", "--port", "5199", "--strictPort"
+      ],
+      "port": 5199
+    }
+  ]
+}
