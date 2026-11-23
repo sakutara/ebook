@@ -1,6 +1,7 @@
 import type { ReaderAdapter } from './adapter'
 import type { RelocateInfo } from '../progress/anchor'
 import { buildTextIndex, findNearest } from './text-index'
+import { installBlobSafeTransform } from './blob-safe'
 
 /** foliate-js ships no type declarations; the view is only touched through this boundary type. */
 type FoliateView = any
@@ -58,6 +59,8 @@ export async function createFoliateAdapter(
   const subscribers = new Set<RelocateCallback>()
   // Latest section-level position, reported by the paginator ('relocate' on view.renderer).
   let last: { index: number; fraction: number } = { index: 0, fraction: 0 }
+  // Removes the blob-safe 'data' listener installed on the current book (see open()).
+  let releaseBlobTransform: (() => void) | null = null
 
   const emit = (detail: FoliateRelocateDetail) => {
     // The view's relocate fires from inside the renderer's dispatch, before the adapter's
@@ -88,6 +91,12 @@ export async function createFoliateAdapter(
   return {
     async open(file: File): Promise<void> {
       await view.open(file)
+      // view.open() only builds the renderer; sections load later on goTo/init, so the
+      // listener is in place before any chapter is requested.
+      releaseBlobTransform?.()
+      releaseBlobTransform = view.book?.transformTarget
+        ? installBlobSafeTransform(view.book.transformTarget)
+        : null
       const renderer: FoliateView = view.renderer
       renderer.addEventListener('relocate', (e: Event) => {
         const { index, fraction } = (e as CustomEvent<RendererRelocateDetail>).detail
@@ -176,6 +185,8 @@ export async function createFoliateAdapter(
     },
 
     destroy(): void {
+      releaseBlobTransform?.()
+      releaseBlobTransform = null
       view.close?.()
       view.remove()
       subscribers.clear()
