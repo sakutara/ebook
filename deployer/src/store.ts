@@ -37,7 +37,7 @@ export interface StoreDeps {
   md5?: (blob: Blob) => Promise<string>
   makeCover?: (cover: Blob | null, title: string, author: string) => Promise<{ blob: Blob; generated: boolean }>
   storage?: KeyValueStorage
-  env?: { VITE_R2_BASE_URL?: string }
+  env?: { VITE_R2_BASE_URL?: string; R2_SECRET?: string }
   /** Public GET for metadata.json during rebuild. */
   fetch?: typeof fetch
   /** Window for the 'online' event that clears uploadError. Default: the global window. */
@@ -102,13 +102,17 @@ export function createStore(deps: StoreDeps = {}) {
   const md5 = deps.md5 ?? ((blob: Blob) => md5Hex(blob))
   const makeCover = deps.makeCover ?? ((cover, title, author) => defaultMakeCover(cover, title, author))
   const storage = deps.storage ?? defaultStorage()
-  const env: { VITE_R2_BASE_URL?: string } = deps.env ?? import.meta.env
+  const env: { VITE_R2_BASE_URL?: string; R2_SECRET?: string } = deps.env ?? import.meta.env
   const fetchFn: typeof fetch = deps.fetch ?? ((input, init) => fetch(input, init))
 
   const savedToken = storage?.getItem(TOKEN_KEY) ?? null
+  // The admin code comes from R2_SECRET when it is set, so the owner never types it;
+  // a remembered token is only the fallback. Env-supplied codes are not written to storage
+  // unless "Nhớ trên máy này" is ticked, the same as a typed one.
+  const envToken = env.R2_SECRET?.trim() ?? ''
   const conn = signal<ConnState>({
     baseUrl: env.VITE_R2_BASE_URL ?? '',
-    token: savedToken ?? '',
+    token: envToken || (savedToken ?? ''),
     remember: savedToken !== null,
     state: 'idle',
   })

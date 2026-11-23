@@ -15,7 +15,7 @@ The Worker is deployed and `ADMIN_TOKEN` is set ([Deploy the R2 Worker](/playboo
 # Publish
 
 1. `npm run deployer` → open http://localhost:5174 (the only origin the Worker accepts writes from by default).
-2. Enter the Worker URL and the admin token, tick "Nhớ trên máy này" only on your own computer, press "Kết nối".
+2. The Worker URL and admin code are pre-filled from `VITE_R2_BASE_URL` and `R2_SECRET` in `.env.local`. Press "Kết nối". If `R2_SECRET` is not set, enter the admin token and tick "Nhớ trên máy này" only on your own computer.
 3. Drop many `.epub` files (or "Chọn"). Each becomes a card: cover, title, author, genres and the folder name (slug) are read from the EPUB ([R2 source](/domain/r2-source.md), [Genre](/domain/genre.md)).
 4. Check each card: fix title/author, toggle Tiên hiệp / Huyền huyễn / Khoa huyễn or add another genre. "Đã có" cards are unticked (same file already online). A red "Sẽ ghi đè «…»" means the slug belongs to another book — change the slug unless you really mean to replace it.
 5. "Tải lên N truyện". Each book uploads `<slug>.epub`, `cover.jpg`, `metadata.json`, then `catalog.json` is updated. Failed books show "Thử lại"; "Dừng" stops after the current book.

@@ -135,6 +135,32 @@ describe('deployer.connect.ok', () => {
   })
 })
 
+describe('deployer.connect.env-token', () => {
+  it('deployer.connect.env-token: R2_SECRET pre-fills the admin code over a remembered one', () => {
+    const storage = memoryStorage()
+    storage.setItem(TOKEN_KEY, 'remembered')
+    const s = createStore({ createClient: () => fakeWorker().client, storage, env: { VITE_R2_BASE_URL: BASE, R2_SECRET: ' from-env ' } })
+    expect(s.conn.value.token).toBe('from-env')
+  })
+
+  it('deployer.connect.env-token: without R2_SECRET the remembered code is used', () => {
+    const storage = memoryStorage()
+    storage.setItem(TOKEN_KEY, 'remembered')
+    const s = createStore({ createClient: () => fakeWorker().client, storage, env: { VITE_R2_BASE_URL: BASE } })
+    expect(s.conn.value.token).toBe('remembered')
+    expect(s.conn.value.remember).toBe(true)
+  })
+
+  it('deployer.connect.env-token: an env code is not written to storage unless remember is ticked', async () => {
+    const storage = memoryStorage()
+    const s = createStore({ createClient: () => fakeWorker().client, storage, env: { VITE_R2_BASE_URL: BASE, R2_SECRET: 'from-env' } })
+    expect(s.conn.value.remember).toBe(false)
+    await s.connect()
+    expect(s.conn.value.state).toBe('ok')
+    expect(storage.getItem(TOKEN_KEY)).toBeNull()
+  })
+})
+
 describe('deployer.connect.bad-token', () => {
   it('deployer.connect.bad-token: a 401 gives state error with "Sai mã quản trị"', async () => {
     const worker = fakeWorker({ 'catalog.json': catalogJson(['a']) })
