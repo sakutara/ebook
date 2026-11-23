@@ -15,10 +15,11 @@ verified:
 |---|---|---|
 | bookId | string | primary key |
 | blob | Blob \| null | WebP (JPEG fallback), max 320 px wide; null = book has no cover → placeholder |
-| md5 | string | book version the cover came from; a different md5 triggers re-extraction |
+| md5 | string | md5 of the cached book file the cover came from; a different md5 triggers re-extraction |
 | fetchedAt | number | epoch ms |
 
-Device-only, not exported. Deleted together with the book's catalog row; kept for
+Filled only from the locally cached book file (`bookFiles`), never via Drive Range reads,
+and only requested by cards in the "Đã lưu" tab. Device-only, not exported. Deleted together with the book's catalog row; kept for
 local-only books. "Xoá toàn bộ cache" does not delete covers (they are small); a separate
 total is shown.
 

@@ -7,6 +7,8 @@ export interface BookCardProps {
   card: CardModel
   online: boolean
   getCover: (b: Book) => Promise<Blob | null | undefined>
+  /** Look up the cover (from the local cache). False shows the file-name title only. */
+  showCover?: boolean
   /** Percent while the file is being fetched into the cache before reading; undefined otherwise. */
   preparing?: number
   onRead: () => void
@@ -15,7 +17,7 @@ export interface BookCardProps {
 
 const PILL = 'rounded-full bg-surface-2 px-2 py-0.5 text-fluid-sm text-ink'
 
-export function BookCard({ card, online, getCover, preparing, onRead, onDownload }: BookCardProps) {
+export function BookCard({ card, online, getCover, showCover = false, preparing, onRead, onDownload }: BookCardProps) {
   const { book, cached, stale, localOnly, fraction } = card
   const pct = fraction === undefined ? undefined : Math.round(fraction * 100)
   const canRead = online || cached
@@ -38,7 +40,7 @@ export function BookCard({ card, online, getCover, preparing, onRead, onDownload
       >
         <CoverImage
           book={{ id: book.id, title: book.title, normTitle: book.normTitle, md5: book.md5 }}
-          get={() => getCover(book)}
+          get={showCover ? () => getCover(book) : undefined}
         />
       </div>
       <h3 class="line-clamp-2 text-fluid-sm font-medium text-ink">{book.title}</h3>

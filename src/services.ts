@@ -23,7 +23,7 @@ export function createServices(db: AppDB = defaultDb): Services {
     api,
     onSynced: () => void refreshStale(cacheDeps),
   })
-  const coverService = createCoverService({ db, api })
+  const coverService = createCoverService({ db })
   return { db, config, api, catalogSync, cacheDeps, coverService }
 }
 

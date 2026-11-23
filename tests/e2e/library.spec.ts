@@ -103,8 +103,6 @@ test('library.search.offline: filters the local catalog with no Drive request', 
   await page.goto('./')
   await page.evaluate(() => navigator.serviceWorker.ready)
   await expect(page.getByRole('article', { name: DPK })).toBeVisible()
-  await expect(page.getByRole('article', { name: DPK }).locator('img')).toBeVisible({ timeout: 10_000 })
-  // Let in-flight cover reads for the full grid settle so only offline search activity is counted.
   await page.waitForLoadState('networkidle')
   const before = drive.requests.length
 
@@ -117,8 +115,27 @@ test('library.search.offline: filters the local catalog with no Drive request', 
   expect(drive.requests.length).toBe(before)
 })
 
-test('library.cover.range: cover image becomes visible for a book with a cover', async ({ page, context }) => {
+test('library.cover.no-drive: the list shows file-name titles and never reads book bytes for covers', async ({ page, context }) => {
+  const drive = await mockDrive(context, makeLibrary(30))
+  await page.goto('./')
+  const card = page.getByRole('article', { name: DPK })
+  await expect(card).toBeVisible()
+  await page.waitForLoadState('networkidle')
+  await expect(card.locator('img')).toHaveCount(0)
+  await expect(card.getByRole('img', { name: DPK })).toBeVisible()
+  expect(drive.mediaRequests('dpk')).toBe(0)
+})
+
+test('library.cover.saved: the saved tab shows the cover from the cached file', async ({ page, context }) => {
   await mockDrive(context, makeLibrary(30))
   await page.goto('./')
-  await expect(page.locator(`article[aria-label="${DPK}"] img`)).toBeVisible({ timeout: 10_000 })
+  const card = page.getByRole('article', { name: DPK })
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: 'Đọc', exact: true }).click()
+  await expect(page).toHaveURL(/#\/read\/dpk$/)
+  await page.goto('./')
+
+  await expect(page.getByRole('article', { name: DPK }).locator('img')).toHaveCount(0)
+  await page.getByRole('radio', { name: 'Đã lưu', exact: true }).click()
+  await expect(page.getByRole('article', { name: DPK }).locator('img')).toBeVisible({ timeout: 10_000 })
 })

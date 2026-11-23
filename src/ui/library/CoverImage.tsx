@@ -18,13 +18,14 @@ export function placeholderHue(normTitle: string): number {
 
 interface CoverImageProps {
   book: CoverBook
-  get: (book: CoverBook) => Promise<Blob | null | undefined>
+  /** Omit to show only the titled placeholder (no cover lookup at all). */
+  get?: (book: CoverBook) => Promise<Blob | null | undefined>
   class?: string
 }
 
 /**
  * Cover thumbnail that loads lazily: `get` is only called once the wrapper comes within
- * 300px of the viewport. Until a blob arrives (or when none exists) a titled placeholder shows.
+ * 300px of the viewport. Without `get` the placeholder (book title) is all that renders. Until a blob arrives (or when none exists) a titled placeholder shows.
  */
 export function CoverImage({ book, get, class: className }: CoverImageProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -37,7 +38,7 @@ export function CoverImage({ book, get, class: className }: CoverImageProps) {
     setWanted(false)
     setUrl(null)
     const el = wrapRef.current
-    if (!el) return
+    if (!el || !get) return
     const obs = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
@@ -49,11 +50,11 @@ export function CoverImage({ book, get, class: className }: CoverImageProps) {
     )
     obs.observe(el)
     return () => obs.disconnect()
-  }, [md5])
+  }, [md5, !get])
 
   // Fetch once when wanted; ignore results that arrive after md5 changes or unmount.
   useEffect(() => {
-    if (!wanted) return
+    if (!wanted || !get) return
     let cancelled = false
     get(book)
       .then((blob) => {
@@ -67,7 +68,7 @@ export function CoverImage({ book, get, class: className }: CoverImageProps) {
       cancelled = true
     }
     // `book` identity is intentionally keyed by md5 only.
-  }, [wanted, md5])
+  }, [wanted, md5, !get])
 
   // Revoke the object URL when it changes or on unmount. Layout effect so the cleanup is
   // registered at commit time (passive effects may not have run before an early unmount).

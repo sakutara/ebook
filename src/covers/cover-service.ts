@@ -1,29 +1,27 @@
 import type { AppDB, Book } from '../db/db'
-import type { DriveApi } from '../drive/drive-api'
-import { DriveRangeReader } from '../drive/range-reader'
 import { extractCover } from './extract-cover'
 import { downscale } from './downscale'
 
 export interface CoverDeps {
   db: AppDB
-  api: DriveApi | null
-  online?: () => boolean
-  extract?: typeof extractCover
+  extract?: (input: Blob) => Promise<Blob | null>
   shrink?: (b: Blob) => Promise<Blob>
   now?: () => number
   concurrency?: number
 }
 
-export type CoverBook = Pick<Book, 'id' | 'md5' | 'size'>
+export type CoverBook = Pick<Book, 'id'>
 
 export interface CoverService {
-  /** Resolves the cover blob, null when the book has none, or undefined when unavailable. */
+  /**
+   * Resolves the cover blob from the locally cached book file only — never from Drive.
+   * Null when the book has no cover, undefined when the book is not cached or extraction failed.
+   */
   get(book: CoverBook): Promise<Blob | null | undefined>
 }
 
 export function createCoverService(deps: CoverDeps): CoverService {
-  const { db, api } = deps
-  const online = deps.online ?? (() => navigator.onLine)
+  const { db } = deps
   const extract = deps.extract ?? extractCover
   const shrink = deps.shrink ?? ((b: Blob) => downscale(b))
   const now = deps.now ?? (() => Date.now())
@@ -47,7 +45,7 @@ export function createCoverService(deps: CoverDeps): CoverService {
       next()
     }
   }
-  const runExtract = async (input: Blob | DriveRangeReader): Promise<Blob | null> => {
+  const runExtract = async (input: Blob): Promise<Blob | null> => {
     await acquire()
     try {
       return await extract(input)
@@ -59,23 +57,20 @@ export function createCoverService(deps: CoverDeps): CoverService {
   const inflight = new Map<string, Promise<Blob | null | undefined>>()
 
   const load = async (book: CoverBook): Promise<Blob | null | undefined> => {
-    const row = await db.covers.get(book.id)
-    if (row && row.md5 === book.md5) return row.blob
-
     const file = await db.bookFiles.get(book.id)
-    let input: Blob | DriveRangeReader
-    if (file) input = file.blob
-    else if (online() && api) input = new DriveRangeReader(api, book.id, book.size)
-    else return undefined
+    if (!file) return undefined
+
+    const row = await db.covers.get(book.id)
+    if (row && row.md5 === file.md5) return row.blob
 
     let blob: Blob | null
     try {
-      const cover = await runExtract(input)
+      const cover = await runExtract(file.blob)
       blob = cover ? await shrink(cover) : null
     } catch {
       return undefined
     }
-    await db.covers.put({ bookId: book.id, blob, md5: book.md5, fetchedAt: now() })
+    await db.covers.put({ bookId: book.id, blob, md5: file.md5, fetchedAt: now() })
     return blob
   }
 

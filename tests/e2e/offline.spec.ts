@@ -42,8 +42,6 @@ test('cache.fetch.offline: an uncached book shows the offline message and makes 
   await page.goto('./')
   const card = bookCard(page, 'Truyện Khác')
   await expect(card).toBeVisible()
-  // Cover thumbnails read the book's bytes (Range requests), so count only what happens after going offline.
-  await expect(card.locator('img')).toBeVisible({ timeout: 10_000 })
   await page.waitForLoadState('networkidle')
   await page.evaluate(() => navigator.serviceWorker.ready)
   const mediaBefore = drive.mediaRequests(UNCACHED.id)

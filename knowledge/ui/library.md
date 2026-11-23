@@ -15,8 +15,10 @@ verified:
   filter segment "Tất cả" / "Đã lưu" (icon + label), refresh icon button with last-sync time.
 - Grid is a container-query grid of cards: 2 columns at 360 px, `grid-template-columns:
   repeat(auto-fill, minmax(9.5rem, 1fr))` so PC shows 6–8 columns. Cards never cause horizontal scroll.
-- Card: cover (aspect 2/3, `object-cover`; placeholder = title on a colour derived from a
-  hash of normTitle), title clamped to 2 lines, badge row, thin progress bar + "%" when a
+- Card: cover (aspect 2/3, `object-cover`; placeholder = title from the Drive file name on a colour
+  derived from a hash of normTitle). To avoid overloading Drive, the "Tất cả" tab always shows the
+  placeholder and never reads covers; only the "Đã lưu" tab shows real covers, extracted from the
+  cached book file (opened or downloaded) — never from Drive, title clamped to 2 lines, badge row, thin progress bar + "%" when a
   position exists, two icon-only buttons ≥ 44 px (see [Icon-first actions](/ui/icons.md)): **Đọc** (`read`, primary colour) and **Tải** (`download`).
 - Offline: cards that are not cached are dimmed, **Đọc** shows the `cloud-off` icon, disabled, aria-label "Cần mạng để đọc";
   **Tải** stays enabled only for cached books.

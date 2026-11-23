@@ -264,6 +264,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
             card={card}
             online={online}
             getCover={(b) => coverService.get(b)}
+            showCover={f === 'saved' && card.cached}
             preparing={preparing[card.book.id]}
             onRead={() => void onRead(card)}
             onDownload={(c) => void onDownload(c)}
