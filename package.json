@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "deploy": "npm run test && npm run build && gh-pages -d dist --dotfiles",
+    "deploy": "npm run test && npm run build",
     "check:okf": "node .claude/skills/pwa-miniapp-sdd/scripts/check-okf.mjs knowledge",
     "pretest": "node scripts/make-fixtures.mjs",
     "pretest:e2e": "node scripts/make-fixtures.mjs",

@@ -21,6 +21,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
+    // GitHub Pages serves the committed /docs folder of main (no CI).
+    outDir: 'docs',
   },
   optimizeDeps: {
     exclude: ['foliate-js'],
