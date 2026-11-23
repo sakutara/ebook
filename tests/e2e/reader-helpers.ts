@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-export const BOOK_ID = 'b1'
+export const BOOK_ID = 'sach-mau'
 export const TITLE = 'Sách Mẫu'
 
 /**

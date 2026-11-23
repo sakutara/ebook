@@ -1,5 +1,5 @@
 import type { AppDB, Book, BookFile } from '../db/db'
-import { DriveError, type DriveApi } from '../drive/drive-api'
+import { SourceError, type BookSource } from '../source/r2-source'
 import { requestPersistence } from '../data/backup'
 
 export type CacheErrorKind = 'offline' | 'network' | 'quota' | 'not-found'
@@ -22,7 +22,7 @@ export interface GetResult {
 
 export interface CacheDeps {
   db: AppDB
-  api: DriveApi | null
+  source: BookSource | null
   online?: () => boolean
   now?: () => number
   persist?: () => Promise<boolean>
@@ -31,7 +31,7 @@ export interface CacheDeps {
 const PERSIST_KEY = 'storage.persistRequested'
 const defaultOnline = () => navigator.onLine
 
-/** A cached copy is stale when Drive has a newer version of the book. */
+/** A cached copy is stale when the catalog has a newer version of the book. */
 export function isStale(book: Book | undefined, file: BookFile): boolean {
   return (
     !!book &&
@@ -89,19 +89,19 @@ export async function storeBookFile(deps: CacheDeps, book: Book, blob: Blob): Pr
   return row
 }
 
-/** Download a book from Drive and store it; maps failures to CacheError kinds. */
+/** Download a book through the source and store it; maps failures to CacheError kinds. */
 async function download(
   deps: CacheDeps,
-  api: DriveApi,
+  source: BookSource,
   book: Book,
-  opts: { onProgress?: (pct: number) => void; signal?: AbortSignal } = {},
+  opts: { onProgress?: (pct: number | null) => void; signal?: AbortSignal } = {},
 ): Promise<BookFile> {
   let blob: Blob
   try {
-    blob = await api.fetchBook(book.id, { size: book.size, onProgress: opts.onProgress, signal: opts.signal })
+    blob = await source.fetchBook(book, { onProgress: opts.onProgress, signal: opts.signal })
   } catch (e) {
     if (isAbortError(e)) throw e
-    if (e instanceof DriveError && e.kind === 'not-found') throw new CacheError('not-found')
+    if (e instanceof SourceError && e.kind === 'not-found') throw new CacheError('not-found')
     throw new CacheError('network')
   }
   return storeBookFile(deps, book, blob)
@@ -110,11 +110,11 @@ async function download(
 export async function getBookFile(
   deps: CacheDeps,
   bookId: string,
-  opts: { onProgress?: (pct: number) => void; signal?: AbortSignal } = {},
+  opts: { onProgress?: (pct: number | null) => void; signal?: AbortSignal } = {},
 ): Promise<GetResult> {
   const online = deps.online ?? defaultOnline
   const now = deps.now ?? Date.now
-  const { db, api } = deps
+  const { db, source } = deps
   const file = await db.bookFiles.get(bookId)
   const book = await db.books.get(bookId)
 
@@ -125,9 +125,9 @@ export async function getBookFile(
 
   if (file) {
     if (!book || !isStale(book, file)) return hit(file, false)
-    if (online() && api) {
+    if (online() && source) {
       try {
-        const fresh = await download(deps, api, book, opts)
+        const fresh = await download(deps, source, book, opts)
         return { blob: fresh.blob, md5: fresh.md5, usedOld: false }
       } catch {
         // Fall through: keep serving the old copy.
@@ -136,9 +136,9 @@ export async function getBookFile(
     return hit(file, true)
   }
 
-  if (!online() || !api) throw new CacheError('offline')
+  if (!online() || !source) throw new CacheError('offline')
   if (!book) throw new CacheError('not-found')
-  const stored = await download(deps, api, book, opts)
+  const stored = await download(deps, source, book, opts)
   return { blob: stored.blob, md5: stored.md5, usedOld: false }
 }
 
@@ -166,38 +166,37 @@ export function refreshStale(deps: CacheDeps): Promise<void> {
 
 async function runRefresh(deps: CacheDeps): Promise<void> {
   const online = deps.online ?? defaultOnline
-  const api = deps.api
-  if (!online() || !api) return
+  const source = deps.source
+  if (!online() || !source) return
   for (const id of await listStaleIds(deps.db)) {
     const book = await deps.db.books.get(id)
     if (!book) continue
     try {
-      await download(deps, api, book)
+      await download(deps, source, book)
     } catch (e) {
       console.warn(`book-cache: refresh failed for ${id}`, e)
     }
   }
 }
 
-/** Remove a book's local-only row and cover once its cache is gone and it has no live position. */
+/** Remove a book's local-only row once its cache is gone and it has no live position. */
 async function dropIfLocalOnly(db: AppDB, bookId: string): Promise<void> {
   const b = await db.books.get(bookId)
   if (!b || b.inDrive !== 0) return
   const progress = await db.progress.get(bookId)
   if (progress && progress.deleted === 0) return
   await db.books.delete(bookId)
-  await db.covers.delete(bookId)
 }
 
 export async function deleteCache(db: AppDB, bookId: string): Promise<void> {
-  await db.transaction('rw', db.bookFiles, db.books, db.covers, db.progress, async () => {
+  await db.transaction('rw', db.bookFiles, db.books, db.progress, async () => {
     await db.bookFiles.delete(bookId)
     await dropIfLocalOnly(db, bookId)
   })
 }
 
 export async function deleteAllCache(db: AppDB): Promise<void> {
-  await db.transaction('rw', db.bookFiles, db.books, db.covers, db.progress, async () => {
+  await db.transaction('rw', db.bookFiles, db.books, db.progress, async () => {
     const ids = (await db.bookFiles.toArray()).map((f) => f.bookId)
     await db.bookFiles.clear()
     for (const id of ids) await dropIfLocalOnly(db, id)
@@ -206,12 +205,10 @@ export async function deleteAllCache(db: AppDB): Promise<void> {
 
 export async function cacheStats(
   db: AppDB,
-): Promise<{ count: number; bytes: number; coversBytes: number }> {
+): Promise<{ count: number; bytes: number }> {
   const files = await db.bookFiles.toArray()
-  const covers = await db.covers.toArray()
   return {
     count: files.length,
     bytes: files.reduce((sum, f) => sum + f.size, 0),
-    coversBytes: covers.reduce((sum, c) => sum + (c.blob?.size ?? 0), 0),
   }
 }

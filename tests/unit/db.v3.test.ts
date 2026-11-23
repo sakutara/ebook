@@ -50,7 +50,7 @@ afterEach(async () => {
 describe('db.v3', () => {
   it('story-request.backup.roundtrip: db is at version 3 with storyRequests(id, &key, createdAt)', async () => {
     const db = await newDb()
-    expect(db.verno).toBe(3)
+    expect(db.verno).toBe(4)
 
     const table = db.table('storyRequests')
     expect(table.schema.primKey.name).toBe('id')
@@ -95,7 +95,7 @@ describe('db.v3', () => {
     v2.close()
 
     const db = await newDb(name)
-    expect(db.verno).toBe(3)
+    expect(db.verno).toBe(4)
     expect(await db.progress.get('b1')).toEqual(progressRow)
     expect(await db.storyRequests.count()).toBe(0)
   })

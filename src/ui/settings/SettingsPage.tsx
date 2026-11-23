@@ -5,10 +5,13 @@ import { cacheStats, deleteAllCache, deleteCache } from '../../cache/book-cache'
 import { clearAllProgress } from '../../progress/progress-repo'
 import { exportData, importData } from '../../data/backup'
 import type { AppDB } from '../../db/db'
+import type { R2Config } from '../../config'
 import { IconButton, IconTextButton } from '../icons/Icon'
 
 export interface SettingsProps {
   db: AppDB
+  /** Worker config; `null` when `VITE_R2_BASE_URL` is not set. */
+  config: R2Config | null
   onRefresh: () => void
   /** Optional replacement for the in-page confirm dialog. When given, destructive actions await it. */
   confirm?: (message: string) => Promise<boolean>
@@ -27,7 +30,7 @@ interface StorageInfo {
   persisted?: boolean
 }
 
-const EMPTY_STATS = { count: 0, bytes: 0, coversBytes: 0 }
+const EMPTY_STATS = { count: 0, bytes: 0 }
 
 const MB_BYTES = 1048576
 const MB_FORMAT: Intl.NumberFormatOptions = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
@@ -80,12 +83,22 @@ async function listCached(db: AppDB): Promise<CachedRow[]> {
     .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
 }
 
-function driveStatusText(): string {
+function sourceStatusText(): string {
   const s = catalogStatus.value
   if (s.state === 'syncing') return 'Đang cập nhật…'
   if (s.state === 'error') return s.error ?? 'Cập nhật thất bại'
   if (s.lastSyncAt !== undefined) return `Cập nhật lúc ${formatDateTime(s.lastSyncAt)}`
   return 'Chưa cập nhật'
+}
+
+/** Host of the book worker, or the not-configured text. */
+function sourceHost(config: R2Config | null | undefined): string {
+  if (!config) return 'Chưa cấu hình'
+  try {
+    return new URL(config.baseUrl).host
+  } catch {
+    return 'Chưa cấu hình'
+  }
 }
 
 interface PendingConfirm {
@@ -216,12 +229,15 @@ export function SettingsPage(p: SettingsProps) {
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 lg:p-8">
       <h1 class="text-fluid-xl font-semibold">Cài đặt</h1>
 
-      <section aria-labelledby="settings-drive" class="flex flex-col gap-3 rounded-xl bg-surface-2 p-4">
-        <h2 id="settings-drive" class="text-fluid-lg font-semibold">
-          Google Drive
+      <section aria-labelledby="settings-source" class="flex flex-col gap-3 rounded-xl bg-surface-2 p-4">
+        <h2 id="settings-source" class="text-fluid-lg font-semibold">
+          Máy chủ truyện
         </h2>
         <div class="flex items-center justify-between gap-2">
-          <p class="text-fluid-sm">{driveStatusText()}</p>
+          <div class="min-w-0">
+            <p class="truncate text-fluid-base">{sourceHost(p.config)}</p>
+            <p class="text-fluid-sm">{sourceStatusText()}</p>
+          </div>
           <IconButton icon="refresh" label="Làm mới" onClick={() => onRefresh()} />
         </div>
       </section>

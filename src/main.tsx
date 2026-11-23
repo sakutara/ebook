@@ -46,7 +46,11 @@ render(
         <RequestPage db={services.db} formConfig={getRequestFormConfig()} flush={engine.flush} />
       ),
       settings: () => (
-        <SettingsPage db={services.db} onRefresh={() => void services.catalogSync.sync({ force: true })} />
+        <SettingsPage
+          db={services.db}
+          config={services.config}
+          onRefresh={() => void services.catalogSync.sync({ force: true })}
+        />
       ),
     }}
   />,

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect, type Page } from '@playwright/test'
-import { makeLibrary, mockDrive } from './drive-mock'
+import { makeLibrary, mockR2 } from './r2-mock'
 
 const BANNER_TEXT = 'Ủng hộ token dịch truyện'
 const TABS = 'Thanh điều hướng'
@@ -22,7 +22,7 @@ async function openDonate(page: Page): Promise<void> {
 }
 
 test('donate.banner.shown: banner text and the Ủng hộ button show on library, settings and request', async ({ page, context }) => {
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   for (const hash of ['#/', '#/settings', '#/request']) {
     await page.goto(`./${hash}`)
     await expect(banner(page)).toBeVisible()
@@ -32,7 +32,7 @@ test('donate.banner.shown: banner text and the Ủng hộ button show on library
 })
 
 test('donate.layout.narrow: banner sits on the tab bar, spans the width, no horizontal scroll and the last row is not hidden', async ({ page, context }, info) => {
-  await mockDrive(context, makeLibrary(30))
+  await mockR2(context, { books: makeLibrary(30) })
   await page.goto('./')
   await expect(page.getByRole('article', { name: DPK })).toBeVisible()
   await expect(page.locator('article')).toHaveCount(31)
@@ -63,7 +63,7 @@ test('donate.layout.narrow: banner sits on the tab bar, spans the width, no hori
 })
 
 test('donate.layout.wide: banner is in the content column, to the right of the side nav', async ({ page, context }, info) => {
-  await mockDrive(context, makeLibrary(30))
+  await mockR2(context, { books: makeLibrary(30) })
   await page.goto('./')
   await expect(page.getByRole('article', { name: DPK })).toBeVisible()
 
@@ -77,7 +77,7 @@ test('donate.layout.wide: banner is in the content column, to the right of the s
 })
 
 test('donate.qr.offline: with the network down the dialog still renders the QR and makes no request', async ({ page, context }) => {
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./')
   await expect(banner(page)).toBeVisible()
   await page.evaluate(() => navigator.serviceWorker.ready)
@@ -96,7 +96,7 @@ test('donate.qr.offline: with the network down the dialog still renders the QR a
 })
 
 test('donate.download.png: downloads ung-ho-50000.png as a PNG of at least 600 px', async ({ page, context }) => {
-  await mockDrive(context, makeLibrary(3))
+  await mockR2(context, { books: makeLibrary(3) })
   await page.goto('./')
   await openDonate(page)
 

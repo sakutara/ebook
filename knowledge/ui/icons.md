@@ -20,6 +20,8 @@ Text labels are kept only where an icon alone would be ambiguous or risky:
 | card / reader / settings / top-bar actions | icon only |
 | primary nav (bottom tabs, side nav) | icon + label |
 | filter segment "Tất cả" / "Đã lưu" | icon + label |
+| genre chips, author select, "Xoá bộ lọc" (move-books-to-r2) | text only — values are names, no metaphor fits |
+| download cancel "Huỷ tải" | icon only (`close`) |
 | buttons inside a confirm `<dialog>` (destructive) | icon + text |
 | donate banner button, form submit buttons | icon + text |
 | disabled state | different icon (e.g. cloud-off) + its own aria-label |

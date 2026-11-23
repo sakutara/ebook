@@ -1,33 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { getDriveConfig, getDonateConfig, getRequestFormConfig } from '../../src/config'
-
-describe('config', () => {
-  it('config: returns apiKey and folderId when both set', () => {
-    expect(getDriveConfig({ VITE_GD_API_KEY: 'k', VITE_GD_FOLDER_ID: 'f' })).toEqual({
-      apiKey: 'k',
-      folderId: 'f',
-    })
-  })
-
-  it('config: returns null when api key empty', () => {
-    expect(getDriveConfig({ VITE_GD_API_KEY: '', VITE_GD_FOLDER_ID: 'f' })).toBeNull()
-  })
-
-  it('config: returns null when folder id missing', () => {
-    expect(getDriveConfig({ VITE_GD_API_KEY: 'k' })).toBeNull()
-  })
-
-  it('config: treats whitespace as empty', () => {
-    expect(getDriveConfig({ VITE_GD_API_KEY: '  ', VITE_GD_FOLDER_ID: 'f' })).toBeNull()
-  })
-
-  it('config: trims returned values', () => {
-    expect(getDriveConfig({ VITE_GD_API_KEY: ' k ', VITE_GD_FOLDER_ID: ' f\n' })).toEqual({
-      apiKey: 'k',
-      folderId: 'f',
-    })
-  })
-})
+import {
+  getDonateConfig,
+  getR2Config,
+  getRequestFormConfig,
+} from '../../src/config'
 
 const DONATE_ENV = {
   VITE_DONATE_BANK: 'VCB',
@@ -138,5 +114,37 @@ describe('story-request.config.missing: getRequestFormConfig', () => {
     expect(
       getRequestFormConfig({ ...FORM_ENV, VITE_REQUEST_ENTRY_KEY: undefined })?.entryKey,
     ).toBeUndefined()
+  })
+})
+
+describe('app-shell.config.missing: getR2Config', () => {
+  it('app-shell.config.missing: strips trailing slashes from the base url', () => {
+    expect(getR2Config({ VITE_R2_BASE_URL: 'https://x.dev/' })).toEqual({ baseUrl: 'https://x.dev' })
+    expect(getR2Config({ VITE_R2_BASE_URL: 'https://x.dev//' })).toEqual({ baseUrl: 'https://x.dev' })
+  })
+
+  it('app-shell.config.missing: keeps a base url without trailing slash and accepts http', () => {
+    expect(getR2Config({ VITE_R2_BASE_URL: 'https://x.dev' })).toEqual({ baseUrl: 'https://x.dev' })
+    expect(getR2Config({ VITE_R2_BASE_URL: 'http://localhost:8787/' })).toEqual({
+      baseUrl: 'http://localhost:8787',
+    })
+  })
+
+  it('app-shell.config.missing: trims whitespace around the base url', () => {
+    expect(getR2Config({ VITE_R2_BASE_URL: '  https://x.dev/ \n' })).toEqual({
+      baseUrl: 'https://x.dev',
+    })
+  })
+
+  it('app-shell.config.missing: returns null for non-http(s) schemes', () => {
+    expect(getR2Config({ VITE_R2_BASE_URL: 'ftp://x' })).toBeNull()
+    expect(getR2Config({ VITE_R2_BASE_URL: 'javascript:alert(1)' })).toBeNull()
+  })
+
+  it('app-shell.config.missing: returns null for empty, whitespace, unparseable or missing value', () => {
+    expect(getR2Config({ VITE_R2_BASE_URL: '' })).toBeNull()
+    expect(getR2Config({ VITE_R2_BASE_URL: '   ' })).toBeNull()
+    expect(getR2Config({ VITE_R2_BASE_URL: 'not a url' })).toBeNull()
+    expect(getR2Config({})).toBeNull()
   })
 })

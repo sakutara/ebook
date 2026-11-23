@@ -33,7 +33,7 @@ schema: spec-driven
 
 context: |
   ## Purpose
-  Tủ Truyện is a PWA mini app that lists EPUB books from one public Google Drive folder, lets the user download them or read them in-app, and keeps downloaded books plus reading position on the device. Knowledge base: /knowledge/index.md.
+  Tủ Truyện is a PWA mini app that lists EPUB books from a Cloudflare R2 bucket (served by a Worker, see /knowledge/decisions/0008-r2-worker-book-source.md), lets the user download them or read them in-app, and keeps downloaded books plus reading position on the device. Knowledge base: /knowledge/index.md.
   
   ## Constraints (hold until the owner explicitly lifts them; record lifts in /knowledge/decisions/)
   - No backend, no server database. All data in IndexedDB on the user's device (Dexie).

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppDB, type Book } from '../../src/db/db'
-import { DriveError, type DriveApi } from '../../src/drive/drive-api'
+import { SourceError, type BookSource } from '../../src/source/r2-source'
+import { upsertCatalog } from '../../src/catalog/catalog-repo'
 import {
   CacheError,
   cacheStats,
@@ -36,6 +37,10 @@ function book(id: string, over: Partial<Book> = {}): Book {
     name: `${id}.epub`,
     title: id,
     normTitle: id,
+    author: '',
+    normAuthor: '',
+    genres: [],
+    description: '',
     size: 1_000_000,
     modifiedTime: T,
     md5: 'm1',
@@ -62,40 +67,58 @@ async function seedFile(bookId: string, md5 = 'm1', modifiedTime = T, bytes = 10
   })
 }
 
-interface FakeApiState {
+interface FakeSourceOptions {
+  /** Throws this error for the book id, after progress was reported. */
+  fail?: (id: string) => Error | undefined
+  /** Progress values reported before the blob is returned. Default: [50, 100]. */
+  pcts?: (number | null)[]
+  /** Never resolves until the signal aborts, then rejects with an AbortError. */
+  hang?: boolean
+}
+
+interface FakeSourceState {
   calls: string[]
   maxInFlight: number
 }
 
-/** Fake DriveApi: resolves a blob of the requested size; `fail` may throw per book id. */
-function makeApi(fail?: (id: string) => Error | undefined): { api: DriveApi; state: FakeApiState } {
-  const state: FakeApiState = { calls: [], maxInFlight: 0 }
+/** Fake BookSource: serves a blob of the book's size for fetchBook; other methods are unused here. */
+function makeSource(opts: FakeSourceOptions = {}): { source: BookSource; state: FakeSourceState } {
+  const state: FakeSourceState = { calls: [], maxInFlight: 0 }
   let inFlight = 0
-  const fetchBook = async (
-    id: string,
-    o: { size: number; onProgress?: (pct: number) => void; signal?: AbortSignal },
-  ): Promise<Blob> => {
-    state.calls.push(id)
+  const fetchBook: BookSource['fetchBook'] = async (b, o = {}) => {
+    state.calls.push(b.id)
     inFlight++
     state.maxInFlight = Math.max(state.maxInFlight, inFlight)
     try {
       await Promise.resolve()
-      o.onProgress?.(50)
-      const err = fail?.(id)
+      if (opts.hang) {
+        await new Promise<never>((_, reject) => {
+          const abort = () => reject(new DOMException('The operation was aborted.', 'AbortError'))
+          if (o.signal?.aborted) abort()
+          else o.signal?.addEventListener('abort', abort)
+        })
+      }
+      for (const p of opts.pcts ?? [50, 100]) o.onProgress?.(p)
+      const err = opts.fail?.(b.id)
       if (err) throw err
-      o.onProgress?.(100)
-      return new Blob([new Uint8Array(o.size)])
+      return new Blob([new Uint8Array(b.size)])
     } finally {
       inFlight--
     }
   }
-  return { api: { fetchBook } as unknown as DriveApi, state }
+  const source = {
+    fetchCatalog: async () => [],
+    coverUrl: () => '',
+    epubUrl: () => '',
+    fetchBook,
+  } as BookSource
+  return { source, state }
 }
 
-function makeDeps(api: DriveApi | null, over: Partial<CacheDeps> = {}): CacheDeps {
+function makeDeps(source: BookSource | null, over: Partial<CacheDeps> = {}): CacheDeps {
   return {
     db,
-    api,
+    source,
     online: () => true,
     now: () => NOW,
     persist: async () => true,
@@ -106,44 +129,77 @@ function makeDeps(api: DriveApi | null, over: Partial<CacheDeps> = {}): CacheDep
 describe('book-cache', () => {
   it('cache.fetch.first-read: downloads once, reports progress, stores md5 and modifiedTime, second open is cache-only', async () => {
     await seedBook(book('a', { size: 1_000_000, md5: 'm1', modifiedTime: T }))
-    const { api, state } = makeApi()
-    const pcts: number[] = []
+    const { source, state } = makeSource({ pcts: [10, 40, 75, 100] })
+    const pcts: (number | null)[] = []
 
-    const first = await getBookFile(makeDeps(api), 'a', { onProgress: (p) => pcts.push(p) })
+    const first = await getBookFile(makeDeps(source), 'a', { onProgress: (p) => pcts.push(p) })
 
     expect(first.usedOld).toBe(false)
     expect(first.blob.size).toBe(1_000_000)
-    expect(pcts.length).toBeGreaterThan(0)
-    for (let i = 1; i < pcts.length; i++) expect(pcts[i]).toBeGreaterThan(pcts[i - 1])
-    expect(pcts[pcts.length - 1]).toBe(100)
+    expect(pcts).toEqual([10, 40, 75, 100])
 
     const row = await db.bookFiles.get('a')
     expect(row?.md5).toBe('m1')
     expect(row?.modifiedTime).toBe(T)
     expect(row?.size).toBe(1_000_000)
 
-    const second = await getBookFile(makeDeps(api), 'a')
+    const second = await getBookFile(makeDeps(source), 'a')
     expect(second.usedOld).toBe(false)
     expect(state.calls).toEqual(['a'])
   })
 
+  it('cache.fetch.content-length: progress reported by the source (25) reaches the caller unchanged', async () => {
+    await seedBook(book('a', { size: 0 }))
+    const { source } = makeSource({ pcts: [25] })
+    const pcts: (number | null)[] = []
+
+    await getBookFile(makeDeps(source), 'a', { onProgress: (p) => pcts.push(p) })
+
+    expect(pcts).toEqual([25])
+  })
+
+  it('cache.fetch.abort: aborting the signal rejects with AbortError and stores nothing', async () => {
+    await seedBook(book('a'))
+    const { source } = makeSource({ hang: true })
+    const ctrl = new AbortController()
+
+    const pending = getBookFile(makeDeps(source), 'a', { signal: ctrl.signal }).catch((e: unknown) => e)
+    ctrl.abort()
+    const err = await pending
+
+    expect(err).not.toBeInstanceOf(CacheError)
+    expect((err as Error).name).toBe('AbortError')
+    expect(await db.bookFiles.get('a')).toBeUndefined()
+  })
+
   it('cache.fetch.interrupted: network drop halfway stores nothing and reports kind network', async () => {
     await seedBook(book('a'))
-    const { api } = makeApi(() => new DriveError('network'))
+    const { source } = makeSource({ fail: () => new SourceError('network') })
 
-    const err = await getBookFile(makeDeps(api), 'a').catch((e: unknown) => e)
+    const err = await getBookFile(makeDeps(source), 'a').catch((e: unknown) => e)
 
     expect(err).toBeInstanceOf(CacheError)
     expect((err as CacheError).kind).toBe('network')
     expect(await db.bookFiles.get('a')).toBeUndefined()
   })
 
+  it('cache.fetch.not-found: a 404 from the source rejects with kind not-found and stores nothing', async () => {
+    await seedBook(book('a'))
+    const { source } = makeSource({ fail: () => new SourceError('not-found', 404) })
+
+    const err = await getBookFile(makeDeps(source), 'a').catch((e: unknown) => e)
+
+    expect(err).toBeInstanceOf(CacheError)
+    expect((err as CacheError).kind).toBe('not-found')
+    expect(await db.bookFiles.get('a')).toBeUndefined()
+  })
+
   it('cache.fetch.quota: storing that throws QuotaExceededError reports kind quota', async () => {
     await seedBook(book('a'))
-    const { api } = makeApi()
+    const { source } = makeSource()
     vi.spyOn(db.bookFiles, 'put').mockRejectedValueOnce(new DOMException('full', 'QuotaExceededError'))
 
-    const err = await getBookFile(makeDeps(api), 'a').catch((e: unknown) => e)
+    const err = await getBookFile(makeDeps(source), 'a').catch((e: unknown) => e)
 
     expect(err).toBeInstanceOf(CacheError)
     expect((err as CacheError).kind).toBe('quota')
@@ -151,9 +207,9 @@ describe('book-cache', () => {
 
   it('cache.fetch.offline: offline and not cached throws kind offline without a request', async () => {
     await seedBook(book('a'))
-    const { api, state } = makeApi()
+    const { source, state } = makeSource()
 
-    const err = await getBookFile(makeDeps(api, { online: () => false }), 'a').catch((e: unknown) => e)
+    const err = await getBookFile(makeDeps(source, { online: () => false }), 'a').catch((e: unknown) => e)
 
     expect((err as CacheError).kind).toBe('offline')
     expect(state.calls).toEqual([])
@@ -162,9 +218,9 @@ describe('book-cache', () => {
   it('cache.persist.removed-from-drive: a cached book with inDrive 0 opens from the cache', async () => {
     await seedBook(book('a', { inDrive: 0, md5: 'm1' }))
     await seedFile('a', 'm1', T)
-    const { api, state } = makeApi()
+    const { source, state } = makeSource()
 
-    const res = await getBookFile(makeDeps(api), 'a')
+    const res = await getBookFile(makeDeps(source), 'a')
 
     expect(res.usedOld).toBe(false)
     expect(res.md5).toBe('m1')
@@ -185,10 +241,10 @@ describe('book-cache', () => {
     await seedBook(book('b', { md5: 'm2', modifiedTime: T + HOUR }))
     await seedFile('a', 'm1', T)
     await seedFile('b', 'm1', T)
-    const { api, state } = makeApi()
+    const { source, state } = makeSource()
     expect((await listStaleIds(db)).sort()).toEqual(['a', 'b'])
 
-    await refreshStale(makeDeps(api))
+    await refreshStale(makeDeps(source))
 
     expect(state.calls.sort()).toEqual(['a', 'b'])
     expect(state.maxInFlight).toBe(1)
@@ -197,14 +253,31 @@ describe('book-cache', () => {
     expect(await listStaleIds(db)).toEqual([])
   })
 
+  it('cache.stale.resync: a catalog sync that changes a cached book makes refreshStale download it through the source', async () => {
+    await upsertCatalog(db, [{ id: 'a', title: 'a', epub: 'a.epub', size: 1_000_000, md5: 'm1', updatedAt: new Date(T).toISOString() }], NOW)
+    await seedFile('a', 'm1', T)
+    expect(await listStaleIds(db)).toEqual([])
+
+    // The next catalog lists a newer edition of "a" with another md5.
+    await upsertCatalog(db, [{ id: 'a', title: 'a', epub: 'a.epub', size: 1_000_000, md5: 'm2', updatedAt: new Date(T + HOUR).toISOString() }], NOW + 1)
+    expect(await listStaleIds(db)).toEqual(['a'])
+
+    const { source, state } = makeSource()
+    await refreshStale(makeDeps(source))
+
+    expect(state.calls).toEqual(['a'])
+    expect((await db.bookFiles.get('a'))?.md5).toBe('m2')
+    expect(await listStaleIds(db)).toEqual([])
+  })
+
   it('book-cache: refreshStale runs downloads serially', async () => {
     for (const id of ['a', 'b', 'c']) {
       await seedBook(book(id, { md5: 'm2', modifiedTime: T + HOUR }))
       await seedFile(id, 'm1', T)
     }
-    const { api, state } = makeApi()
+    const { source, state } = makeSource()
 
-    await refreshStale(makeDeps(api))
+    await refreshStale(makeDeps(source))
 
     expect(state.calls).toHaveLength(3)
     expect(state.maxInFlight).toBe(1)
@@ -213,9 +286,9 @@ describe('book-cache', () => {
   it('cache.stale.open-online: stale book opened online is downloaded, stored and returned', async () => {
     await seedBook(book('a', { md5: 'm2', modifiedTime: T + HOUR }))
     await seedFile('a', 'm1', T)
-    const { api, state } = makeApi()
+    const { source, state } = makeSource()
 
-    const res = await getBookFile(makeDeps(api), 'a')
+    const res = await getBookFile(makeDeps(source), 'a')
 
     expect(res.usedOld).toBe(false)
     expect(res.md5).toBe('m2')
@@ -226,9 +299,9 @@ describe('book-cache', () => {
   it('cache.stale.offline: stale book opened offline returns the old copy with usedOld true', async () => {
     await seedBook(book('a', { md5: 'm2', modifiedTime: T + HOUR }))
     await seedFile('a', 'm1', T)
-    const { api, state } = makeApi()
+    const { source, state } = makeSource()
 
-    const res = await getBookFile(makeDeps(api, { online: () => false }), 'a')
+    const res = await getBookFile(makeDeps(source, { online: () => false }), 'a')
 
     expect(res.usedOld).toBe(true)
     expect(res.md5).toBe('m1')
@@ -238,10 +311,10 @@ describe('book-cache', () => {
   it('cache.stale.refresh-fails: failed background refresh keeps the old blob and the book stays stale', async () => {
     await seedBook(book('a', { md5: 'm2', modifiedTime: T + HOUR }))
     await seedFile('a', 'm1', T)
-    const { api } = makeApi(() => new DriveError('network'))
+    const { source } = makeSource({ fail: () => new SourceError('network') })
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    await expect(refreshStale(makeDeps(api))).resolves.toBeUndefined()
+    await expect(refreshStale(makeDeps(source))).resolves.toBeUndefined()
 
     expect((await db.bookFiles.get('a'))?.md5).toBe('m1')
     expect(await listStaleIds(db)).toEqual(['a'])
@@ -281,15 +354,13 @@ describe('book-cache', () => {
     expect(await getProgress(db, 'a')).toEqual(before)
   })
 
-  it('cache.clear.local-only: deleting the cache of a local-only book removes it from books and covers', async () => {
+  it('cache.clear.local-only: deleting the cache of a local-only book removes it from books', async () => {
     await seedBook(book('c', { inDrive: 0 }))
     await seedFile('c')
-    await db.covers.put({ bookId: 'c', blob: new Blob(['cover']), md5: 'x', fetchedAt: NOW })
 
     await deleteCache(db, 'c')
 
     expect(await db.books.get('c')).toBeUndefined()
-    expect(await db.covers.get('c')).toBeUndefined()
     expect(await db.bookFiles.get('c')).toBeUndefined()
   })
 
@@ -297,7 +368,7 @@ describe('book-cache', () => {
     vi.resetModules()
     const fresh = await import('../../src/cache/book-cache')
     const persist = vi.fn(async () => true)
-    const deps: CacheDeps = { db, api: null, online: () => true, now: () => NOW, persist }
+    const deps: CacheDeps = { db, source: null, online: () => true, now: () => NOW, persist }
     const b1 = book('a')
     const b2 = book('b')
     await seedBook(b1)
@@ -311,9 +382,9 @@ describe('book-cache', () => {
   })
 
   it('book-cache: getBookFile for an unknown book with no file throws not-found', async () => {
-    const { api, state } = makeApi()
+    const { source, state } = makeSource()
 
-    const err = await getBookFile(makeDeps(api), 'missing').catch((e: unknown) => e)
+    const err = await getBookFile(makeDeps(source), 'missing').catch((e: unknown) => e)
 
     expect((err as CacheError).kind).toBe('not-found')
     expect(state.calls).toEqual([])
@@ -327,7 +398,6 @@ describe('book-cache', () => {
 
     expect(stats.count).toBe(2)
     expect(stats.bytes).toBe(35)
-    // coversBytes is not asserted here: fake-indexeddb does not round-trip Blob.size in this env.
-    expect(typeof stats.coversBytes).toBe('number')
+    expect(stats).not.toHaveProperty('coversBytes')
   })
 })

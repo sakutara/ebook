@@ -17,7 +17,7 @@ import { buildAnchor, planRestore, type Anchor, type RelocateInfo } from '../../
 import { getProgress, saveProgress } from '../../progress/progress-repo'
 import { createSaveScheduler } from '../../progress/save-scheduler'
 import { IconButton } from '../icons/Icon'
-import { LoadingOverlay } from './LoadingOverlay'
+import { ProgressBar } from '../ProgressBar'
 import { ReaderChrome } from './ReaderChrome'
 import { TocPanel, type TocEntry } from './TocPanel'
 import { PrefsSheet } from './PrefsSheet'
@@ -36,7 +36,7 @@ export interface ReaderDeps {
 }
 
 type View =
-  | { kind: 'loading'; percent?: number }
+  | { kind: 'loading'; percent?: number | null }
   | { kind: 'ready' }
   | { kind: 'not-found' }
   | { kind: 'error'; error: 'offline' | 'network' | 'quota' }
@@ -279,7 +279,17 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
       </aside>
 
       <div ref={containerRef} class="relative flex-1 min-h-dvh">
-        {view.kind === 'loading' && <LoadingOverlay percent={view.percent} />}
+        {view.kind === 'loading' && (
+          <div
+            role="status"
+            class="absolute inset-0 z-10 flex items-center justify-center bg-[var(--reader-bg)] p-gutter"
+          >
+            <div class="w-full max-w-xs">
+              {/* undefined = no chunk yet (0 %); null = size unknown (indeterminate). */}
+              <ProgressBar percent={view.percent === undefined ? 0 : view.percent} />
+            </div>
+          </div>
+        )}
 
         {view.kind === 'not-found' && (
           <div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[var(--reader-bg)] p-gutter text-center">
@@ -301,7 +311,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
             {view.error === 'network' && (
               <>
                 <p class="text-fluid-base">Không tải được truyện</p>
-                <p class="text-fluid-sm opacity-70">Google Drive có thể đang giới hạn truy cập — thử lại sau ít phút.</p>
+                <p class="text-fluid-sm opacity-70">Không tải được truyện, thử lại sau</p>
                 <IconButton icon="retry" label="Thử lại" onClick={() => setAttempt((n) => n + 1)} />
               </>
             )}

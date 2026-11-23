@@ -3,7 +3,7 @@ type: Domain Concept
 title: Drive source
 description: The one public Google Drive folder the catalog is read from, and how the app talks to Drive without a backend.
 tags: [catalog, drive]
-status: stable
+status: deprecated
 generated: { by: claude-opus-5-5, at: 2026-11-23T04:50:00Z }
 verified:
   - { by: human:owner, at: 2026-11-23T06:00:00Z }

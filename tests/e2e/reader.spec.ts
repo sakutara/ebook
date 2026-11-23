@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { mockDrive } from './drive-mock'
+import { epubPath, mockR2 } from './r2-mock'
 import {
   BOOK_ID,
+  TITLE,
   backButton,
   chapterOf,
   frameStyle,
@@ -14,37 +15,37 @@ import {
   waitForReady,
 } from './reader-helpers'
 
-const FILES = [{ id: BOOK_ID, name: 'Sách Mẫu.epub', fixture: 'book-v1.epub' }]
+const FILES = [{ id: BOOK_ID, title: TITLE, fixture: 'book-v1.epub' }]
 
 test.describe('reader', () => {
   test('cache.fetch.first-read: first open downloads the book once; reopening makes no full media request', async ({ page, context }) => {
-    const drive = await mockDrive(context, FILES)
+    const r2 = await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).toMatchObject({ chapter: 1 })
-    expect(drive.fullMediaRequests(BOOK_ID)).toBe(1)
+    expect(r2.count(epubPath(BOOK_ID))).toBe(1)
 
     await showChrome(page)
     await page.getByRole('button', { name: 'Về thư viện' }).click()
     await expect(page).toHaveURL(/#\/$/)
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).toMatchObject({ chapter: 1 })
-    expect(drive.fullMediaRequests(BOOK_ID)).toBe(1)
+    expect(r2.count(epubPath(BOOK_ID))).toBe(1)
   })
 
   test('reader.open.cached: second open renders without any full media request', async ({ page, context }) => {
-    const drive = await mockDrive(context, FILES)
+    const r2 = await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
-    const before = drive.fullMediaRequests(BOOK_ID)
+    const before = r2.count(epubPath(BOOK_ID))
 
     await page.goto('./#/')
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
-    expect(drive.fullMediaRequests(BOOK_ID)).toBe(before)
+    expect(r2.count(epubPath(BOOK_ID))).toBe(before)
   })
 
   test('reader.open.offline: a cached book renders with the network down', async ({ page, context }) => {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
     await page.evaluate(() => navigator.serviceWorker.ready)
@@ -56,7 +57,7 @@ test.describe('reader', () => {
   })
 
   test('reader.nav.tap: tapping the right 85 % advances the page without losing progress', async ({ page, context }) => {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
     const startMarker = await marker(page)
@@ -68,7 +69,7 @@ test.describe('reader', () => {
   })
 
   test('reader.nav.keys: ArrowRight advances to the next page', async ({ page, context }) => {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
     const startMarker = await marker(page)
@@ -78,7 +79,7 @@ test.describe('reader', () => {
   })
 
   test('reader.nav.slider: seeking to the middle of the book lands in chapter 5 or 6', async ({ page, context }) => {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
     await showChrome(page)
@@ -95,7 +96,7 @@ test.describe('reader', () => {
   })
 
   test('reader.chrome.toggle: a centre tap shows the chrome and a second one hides it', async ({ page, context }) => {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
     await expect(backButton(page)).toBeHidden()
@@ -107,7 +108,7 @@ test.describe('reader', () => {
   })
 
   test('reader.toc.go: choosing "Chương 5" in the table of contents opens chapter 5', async ({ page, context }) => {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
 
@@ -117,7 +118,7 @@ test.describe('reader', () => {
 
   test('reader.layout.narrow: at 375 px no navigation landmarks show and the TOC is a full-screen sheet', async ({ page, context }) => {
     await page.setViewportSize({ width: 375, height: 812 })
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
 
@@ -137,7 +138,7 @@ test.describe('reader', () => {
 
   test('reader.layout.wide: at 1280 px the TOC aside sits beside a text column of at most 40 rem', async ({ page, context }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
 
@@ -166,7 +167,7 @@ test.describe('reader', () => {
   })
 
   test('reader.prefs.apply: larger font and dark theme apply inside the reader and keep the chapter', async ({ page, context }) => {
-    await mockDrive(context, FILES)
+    await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
     const defaultSize = (await frameStyle(page)).fontSize

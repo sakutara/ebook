@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import type { AppDB } from '../db/db'
-import { DriveError, type DriveApi } from '../drive/drive-api'
-import { reattachProgress, reconcile, upsertPage } from './catalog-repo'
+import { SourceError, type BookSource } from '../source/r2-source'
+import { reattach, reconcile, upsertCatalog } from './catalog-repo'
 
 export interface CatalogStatus {
   state: 'idle' | 'syncing' | 'error'
@@ -13,7 +13,7 @@ export const catalogStatus = signal<CatalogStatus>({ state: 'idle' })
 
 export interface CatalogSyncDeps {
   db: AppDB
-  api: DriveApi | null
+  source: BookSource | null
   now?: () => number
   online?: () => boolean
   onSynced?: () => void
@@ -27,7 +27,7 @@ export interface CatalogSyncOptions {
 
 const LAST_SYNC_KEY = 'catalog.lastSyncAt'
 const VISIBLE_THROTTLE_MS = 5 * 60_000
-const NETWORK_ERROR_MESSAGE = 'Không kết nối được Google Drive'
+const NETWORK_ERROR_MESSAGE = 'Không kết nối được máy chủ truyện'
 
 export function createCatalogSync(deps: CatalogSyncDeps): {
   sync(opts?: CatalogSyncOptions): Promise<void>
@@ -36,7 +36,7 @@ export function createCatalogSync(deps: CatalogSyncDeps): {
 } {
   const {
     db,
-    api,
+    source,
     now = Date.now,
     online = () => navigator.onLine,
     onSynced,
@@ -64,23 +64,16 @@ export function createCatalogSync(deps: CatalogSyncDeps): {
     }, delay)
   }
 
-  async function run(drive: DriveApi): Promise<void> {
+  async function run(src: BookSource): Promise<void> {
     const previous = catalogStatus.value
     catalogStatus.value = { ...previous, state: 'syncing', error: undefined }
     const t0 = now()
     let ok = false
     try {
-      const newIds: string[] = []
-      let token: string | undefined
-      do {
-        const page = await drive.listPage(token)
-        const { newIds: ids } = await upsertPage(db, page.files, t0)
-        newIds.push(...ids)
-        token = page.nextPageToken
-      } while (token)
-
+      const entries = await src.fetchCatalog()
+      const { newIds } = await upsertCatalog(db, entries, t0)
       await reconcile(db, t0)
-      await reattachProgress(db, newIds)
+      await reattach(db, newIds, now())
       await db.settings.put({ key: LAST_SYNC_KEY, value: t0, updatedAt: t0 })
 
       retryAttempt = 0
@@ -91,9 +84,9 @@ export function createCatalogSync(deps: CatalogSyncDeps): {
       catalogStatus.value = {
         state: 'error',
         lastSyncAt: previous.lastSyncAt,
-        error: err instanceof DriveError ? err.message : NETWORK_ERROR_MESSAGE,
+        error: err instanceof SourceError ? err.message : NETWORK_ERROR_MESSAGE,
       }
-      if (err instanceof DriveError && (err.kind === 'rate-limit' || err.kind === 'network')) {
+      if (err instanceof SourceError && (err.kind === 'network' || err.kind === 'server')) {
         scheduleRetry()
       }
     }
@@ -102,8 +95,8 @@ export function createCatalogSync(deps: CatalogSyncDeps): {
 
   function sync(_opts?: CatalogSyncOptions): Promise<void> {
     if (inFlight) return inFlight
-    if (!api || !online()) return Promise.resolve()
-    inFlight = run(api).finally(() => {
+    if (!source || !online()) return Promise.resolve()
+    inFlight = run(source).finally(() => {
       inFlight = null
     })
     return inFlight

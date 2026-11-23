@@ -2,7 +2,8 @@
 type: Decision
 title: 0002 Google Drive API key in the build
 description: The app reads the public Drive folder with a referrer-restricted browser API key baked into the static build, no OAuth, no proxy.
-status: stable
+status: deprecated
+superseded_by: /decisions/0008-r2-worker-book-source.md
 generated: { by: claude-opus-5-5, at: 2026-11-23T04:50:00Z }
 verified:
   - { by: human:owner, at: 2026-11-23T06:00:00Z }

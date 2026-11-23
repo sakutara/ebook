@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-deployer/
 dist-ssr
 *.local
 
@@ -29,3 +30,8 @@ tests/fixtures/
 # Playwright output
 test-results/
 playwright-report/
+
+# Cloudflare Worker local state and secrets
+.wrangler/
+worker/.wrangler/
+worker/.dev.vars

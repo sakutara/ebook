@@ -11,9 +11,45 @@
         "VITE_REQUEST_FORM_ID=demo-form",
         "VITE_REQUEST_ENTRY_TITLE=111",
         "VITE_REQUEST_ENTRY_AUTHOR=222",
-        "npx", "vite", "--port", "5199", "--strictPort"
+        "npx",
+        "vite",
+        "--port",
+        "5199",
+        "--strictPort"
       ],
       "port": 5199
+    },
+    {
+      "name": "worker-local",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "wrangler",
+        "dev",
+        "-c",
+        "worker/wrangler.toml",
+        "--port",
+        "8787",
+        "--local"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "preview-r2",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "VITE_R2_BASE_URL=http://localhost:8787 npm run build && npx vite preview --port 4174 --strictPort"
+      ],
+      "port": 4174
+    },
+    {
+      "name": "deployer",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "rm -rf node_modules/.vite-deployer node_modules/.vite && VITE_R2_BASE_URL=http://localhost:8787 npx vite --config vite.deployer.config.ts"
+      ],
+      "port": 5174
     }
   ]
 }

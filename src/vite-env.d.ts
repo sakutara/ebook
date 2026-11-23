@@ -1,8 +1,7 @@
 /// <reference types="vite-plugin-pwa/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_GD_API_KEY?: string
-  readonly VITE_GD_FOLDER_ID?: string
+  readonly VITE_R2_BASE_URL?: string
   readonly VITE_DONATE_BANK?: string
   readonly VITE_DONATE_ACCOUNT_NO?: string
   readonly VITE_DONATE_ACCOUNT_NAME?: string

@@ -1,0 +1,12 @@
+name = "tu-truyen"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[[r2_buckets]]
+binding = "BOOKS"
+bucket_name = "tu-truyen"
+
+[vars]
+ADMIN_ORIGINS = "http://localhost:5174"
+
+# Secret, not committed: wrangler secret put ADMIN_TOKEN

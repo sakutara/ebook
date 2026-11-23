@@ -1,30 +1,27 @@
 import { db as defaultDb, type AppDB } from './db/db'
-import { getDriveConfig, type DriveConfig } from './config'
-import { createDriveApi, type DriveApi } from './drive/drive-api'
+import { getR2Config, type R2Config } from './config'
 import { createCatalogSync } from './catalog/catalog-sync'
 import { refreshStale, type CacheDeps } from './cache/book-cache'
-import { createCoverService, type CoverService } from './covers/cover-service'
+import { createR2Source, type BookSource } from './source/r2-source'
 
 export interface Services {
   db: AppDB
-  config: DriveConfig | null
-  api: DriveApi | null
+  config: R2Config | null
+  source: BookSource | null
   catalogSync: ReturnType<typeof createCatalogSync>
   cacheDeps: CacheDeps
-  coverService: CoverService
 }
 
 export function createServices(db: AppDB = defaultDb): Services {
-  const config = getDriveConfig()
-  const api = config ? createDriveApi(config) : null
-  const cacheDeps: CacheDeps = { db, api }
+  const config = getR2Config()
+  const source = config ? createR2Source(config) : null
+  const cacheDeps: CacheDeps = { db, source }
   const catalogSync = createCatalogSync({
     db,
-    api,
+    source,
     onSynced: () => void refreshStale(cacheDeps),
   })
-  const coverService = createCoverService({ db })
-  return { db, config, api, catalogSync, cacheDeps, coverService }
+  return { db, config, source, catalogSync, cacheDeps }
 }
 
 let singleton: Services | undefined
