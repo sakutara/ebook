@@ -56,6 +56,7 @@ npm pkg set scripts.test:watch="vitest"
 npm pkg set scripts.test:e2e="playwright test"
 npm pkg set scripts.deploy="npm run test && npm run build && gh-pages -d dist --dotfiles"
 npm pkg set scripts.icons:sheet="node .claude/skills/pwa-miniapp-sdd/scripts/icon-sheet.mjs src/icons > icon-sheet.html"
+npm pkg set scripts.autobuild="bash scripts/autobuild.sh --force"
 npm pkg set scripts.check:okf="node .claude/skills/pwa-miniapp-sdd/scripts/check-okf.mjs knowledge"
 npx playwright install chromium
 
@@ -83,8 +84,13 @@ cp "$SKILL_DIR/assets/agents/"*.md .claude/agents/
 [ -d .claude/skills/pwa-miniapp-sdd ] || cp -R "$SKILL_DIR" .claude/skills/pwa-miniapp-sdd
 
 echo "==> git"
-[ -d .git ] || git init -q
-grep -q '^dist' .gitignore 2>/dev/null || printf 'dist\ntest-results\nplaywright-report\nicon-sheet.html\n' >> .gitignore
+[ -d .git ] || git init -q -b main
+grep -q '^dist' .gitignore 2>/dev/null || printf 'dist\ntest-results\nplaywright-report\nicon-sheet.html\n.autobuild\n' >> .gitignore
+# Local CI: build main automatically after a branch/worktree is merged into it.
+# Hooks are versioned in .githooks/ and shared by every worktree of this repo.
+chmod +x .githooks/* scripts/autobuild.sh
+git config core.hooksPath .githooks
+git config autobuild.branch main
 
 cat <<EOF
 

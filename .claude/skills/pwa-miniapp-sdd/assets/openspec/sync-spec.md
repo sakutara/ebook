@@ -12,6 +12,10 @@ Every local write to a synced table SHALL append an outbox operation in the same
 - **WHEN** a repository writes a record and the transaction aborts
 - **THEN** neither the record nor the outbox op is stored
 
+#### Scenario: sync.outbox.order
+- **WHEN** several ops are queued within the same millisecond
+- **THEN** they are flushed in the order they were queued
+
 ### Requirement: Resync on reconnect
 The app SHALL flush the outbox through the active sync adapter when connectivity returns, on app start, and when the app becomes visible.
 

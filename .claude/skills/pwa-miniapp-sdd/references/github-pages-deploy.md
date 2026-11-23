@@ -35,9 +35,32 @@ the user asks, relying on the `404.html` copy.
 - Don't put secrets in the build: everything in `dist/` is public. `VITE_*` env vars are
   inlined into JS.
 
+## Auto-build on main (local CI)
+
+Because builds are local, "CI" is a pair of git hooks versioned in `.githooks/` and enabled by
+`git config core.hooksPath .githooks` (the scaffold does this; a fresh clone must run it once).
+
+| Trigger | Hook |
+|---|---|
+| `git merge <branch>` into main (incl. fast-forward), `git pull` on main | `post-merge` |
+| `git pull --rebase` on main | `post-rewrite` (rebase) |
+| Squash merge, `--no-verify`, merges done on GitHub then pulled with a tool that skips hooks | none — run `npm run autobuild` |
+
+`scripts/autobuild.sh` exits immediately unless `main` (`git config autobuild.branch`) is
+checked out, so merges between feature branches and work inside other worktrees don't build.
+On main it runs: `npm ci` (only if `node_modules` is missing or `package-lock.json` changed in
+the merge) → `npm test` → `openspec validate --all --strict` → `check:okf` → `npm run build`.
+It writes `.autobuild/status.json` (`status`, `commit`, `failedStep`, `seconds`) and
+`.autobuild/last.log`, shows a macOS notification on failure, and holds a lock so two merges
+can't build at once. E2E tests are left out to keep merges fast; run `npm run test:e2e` before
+deploying. Set `SKIP_AUTOBUILD=1` to skip one run.
+
+It never deploys and never reverts a merge: a failed build means fix forward on a branch.
+
 ## Before every deploy
 
-- `npm run test` and `npm run test:e2e` green; `npm run build` green.
+- On `main`, `.autobuild/status.json` is `passed` for the current `git rev-parse --short HEAD`.
+- `npm run test:e2e` green.
 - `npm run preview`, load once, go offline in devtools, reload → app shell still renders.
 - Ask the user to confirm the deploy (it publishes publicly), then `npm run deploy`.
 - After deploy: open `https://<user>.github.io/<repo>/`, check the SW is active and the app

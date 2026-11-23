@@ -33,6 +33,7 @@ and when they do, record the change as an OKF `Decision` doc (see `references/ok
 | Mobile-first, fluid | Tailwind v4, design for ~360px first, scale fluidly with `clamp()`; PC view is a supported enhancement (wider layout, side nav), not a separate app. |
 | Icon-first CTAs, AI-drawn | Buttons, toolbar actions and tabs prefer an icon over text. Each icon is drawn as SVG by the architect for that specific action (no icon fonts/CDNs), bundled for offline use, with an accessible label and tooltip. Labels are added only where the metaphor isn't obvious or the action is destructive. |
 | Static deploy | `npm run build` locally → push `dist/` to the `gh-pages` branch. No CI builds, no server rendering. |
+| Auto-build on main | Merging a branch or worktree into `main` (or pulling into it) triggers a local build via versioned git hooks (`.githooks/`): unit tests, spec + OKF validation, production build. Results in `.autobuild/status.json`. It never deploys. |
 
 Why no backend: it keeps the app free to host, private by default and trivially deployable.
 The cost is that the user's data lives on one device, so every app ships **Export / Import
@@ -128,6 +129,17 @@ offline/online toggle tests), `npm run build`, then a Lighthouse-style PWA check
 `npm run preview`. Opus confirms every scenario has a passing test and that the app works
 offline in the preview build (service workers don't run in `vite dev` by default).
 
+### Branches, worktrees and merging
+
+Work on a change in its own branch (or git worktree) named after the change id. When it's
+done and verified, merge it into `main` from the main checkout (`git merge --no-ff <branch>`)
+— merging is an outward step, so do it when the user asks. The `post-merge` hook then runs
+`scripts/autobuild.sh` on `main` automatically (hooks are shared by every worktree, and the
+script only acts when `main` is checked out). After any merge into `main`, read
+`.autobuild/status.json`; if it says `failed`, report the failed step and the tail of
+`.autobuild/last.log`, and fix forward on a new branch — the merge itself is never reverted
+automatically. Squash merges and `--no-verify` skip the hook: run `npm run autobuild` then.
+
 ### Stage 6 — Archive (Opus)
 
 `openspec archive <change-id>` to merge deltas into `openspec/specs/`. Update OKF docs touched
@@ -135,7 +147,8 @@ by the change (`status`, `verified`), and add a dated entry to `knowledge/log.md
 
 ### Stage 7 — Deploy — GATE: user confirms
 
-Deploying publishes the site publicly, so ask before the first deploy of each change. Then
+Deploying publishes the site publicly, so ask before the first deploy of each change. Deploy only from
+`main` with a `passed` autobuild for the current commit. Then
 run `npm run deploy` (tests → build → push `dist/` to `gh-pages`). See
 `references/github-pages-deploy.md` for base path, SPA fallback and cache-busting details.
 
@@ -148,7 +161,7 @@ Read only what the current stage needs:
 - `references/tdd-model-split.md` — Opus/Haiku orchestration, delegation template, test naming.
 - `references/pwa-offline-sync.md` — service worker, Dexie, outbox, resync engine, storage persistence, backup.
 - `references/responsive-tailwind.md` — fluid tokens, breakpoints, mobile vs PC layout patterns.
-- `references/github-pages-deploy.md` — local build + gh-pages deploy, base path, SW scope.
+- `references/github-pages-deploy.md` — local build + gh-pages deploy, base path, SW scope, auto-build on main.
 - `references/iconography.md` — icon-only vs icon + label, icon brief, SVG house style, review sheet.
 
 Assets: `assets/scaffold/` (starter source copied by the scaffold script),

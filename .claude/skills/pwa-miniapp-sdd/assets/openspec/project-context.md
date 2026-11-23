@@ -9,6 +9,7 @@
 - Writes go through the outbox; the sync engine resyncs on reconnect (default adapter: local-only).
 - Mobile-first fluid UI with Tailwind v4; PC layout from `lg` (side nav, two panes).
 - Static build on the local machine, deployed to GitHub Pages (`gh-pages` branch), base path `/<REPO>/`, hash routing.
+- Merging into `main` auto-runs a local build (git hooks in .githooks/); deploy only from a passing main.
 - Every app ships JSON export/import and requests persistent storage.
 - Controls are icon-first: icons are drawn per action as SVG by the architect (src/icons/), with accessible labels; see /knowledge/ui/iconography.md.
 

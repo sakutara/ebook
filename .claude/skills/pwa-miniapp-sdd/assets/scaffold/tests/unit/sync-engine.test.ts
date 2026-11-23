@@ -45,3 +45,13 @@ describe('sync', () => {
     expect(push).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('sync.outbox', () => {
+  it('sync.outbox.order: ops queued in the same millisecond keep insertion order', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000)
+    for (let n = 1; n <= 20; n++) await enqueue(db, op(n))
+    now.mockRestore()
+    const ids = (await db.outbox.orderBy('createdAt').toArray()).map((o) => o.entityId)
+    expect(ids).toEqual(Array.from({ length: 20 }, (_, i) => `n${i + 1}`))
+  })
+})
