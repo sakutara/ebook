@@ -301,6 +301,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
             {view.error === 'network' && (
               <>
                 <p class="text-fluid-base">Không tải được truyện</p>
+                <p class="text-fluid-sm opacity-70">Google Drive có thể đang giới hạn truy cập — thử lại sau ít phút.</p>
                 <IconButton icon="retry" label="Thử lại" onClick={() => setAttempt((n) => n + 1)} />
               </>
             )}

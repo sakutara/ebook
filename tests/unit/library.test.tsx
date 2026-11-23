@@ -405,3 +405,21 @@ describe('app-shell.icons.icon-only (library part)', () => {
     }
   })
 })
+
+describe('library.layout.list', () => {
+  it('library.layout.list: list layout shows no cover image and the toggle switches the layout', async () => {
+    await seed([book('a', 'Bản a')], [file('a')])
+    render(<LibraryPage services={makeServices({ config: true, api: true }) as any} />)
+    await screen.findByRole('article', { name: 'Bản a' })
+    expect(within(card('Bản a')).getByRole('img', { name: 'Bản a' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Danh sách' }))
+    expect(screen.getByRole('radio', { name: 'Danh sách' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(card('Bản a')).queryByRole('img', { name: 'Bản a' })).toBeNull()
+    expect(localStorage.getItem('library.layout')).toBe('list')
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Lưới' }))
+    expect(within(card('Bản a')).getByRole('img', { name: 'Bản a' })).toBeInTheDocument()
+    localStorage.removeItem('library.layout')
+  })
+})

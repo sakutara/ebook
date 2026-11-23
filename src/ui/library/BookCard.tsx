@@ -11,13 +11,15 @@ export interface BookCardProps {
   showCover?: boolean
   /** Percent while the file is being fetched into the cache before reading; undefined otherwise. */
   preparing?: number
+  /** 'list' drops the cover and shows the row compactly. */
+  layout?: 'grid' | 'list'
   onRead: () => void
   onDownload: (card: CardModel) => void
 }
 
 const PILL = 'rounded-full bg-surface-2 px-2 py-0.5 text-fluid-sm text-ink'
 
-export function BookCard({ card, online, getCover, showCover = false, preparing, onRead, onDownload }: BookCardProps) {
+export function BookCard({ card, online, getCover, showCover = false, preparing, layout = 'grid', onRead, onDownload }: BookCardProps) {
   const { book, cached, stale, localOnly, fraction } = card
   const pct = fraction === undefined ? undefined : Math.round(fraction * 100)
   const canRead = online || cached
@@ -29,21 +31,25 @@ export function BookCard({ card, online, getCover, showCover = false, preparing,
     localOnly && 'Chỉ còn trên máy',
   ].filter((b): b is string => typeof b === 'string')
 
+  const list = layout === 'list'
   return (
     <article
       aria-label={book.title}
-      class={`@container flex flex-col gap-2 ${dim ? 'opacity-60' : ''}`}
+      class={`@container flex ${list ? 'flex-row items-center gap-3 py-2' : 'flex-col gap-2'} ${dim ? 'opacity-60' : ''}`}
     >
-      <div
-        class={canRead ? 'cursor-pointer' : undefined}
-        onClick={canRead ? onRead : undefined}
-      >
-        <CoverImage
-          book={{ id: book.id, title: book.title, normTitle: book.normTitle, md5: book.md5 }}
-          get={showCover ? () => getCover(book) : undefined}
-        />
-      </div>
-      <h3 class="line-clamp-2 text-fluid-sm font-medium text-ink">{book.title}</h3>
+      {!list && (
+        <div
+          class={canRead ? 'cursor-pointer' : undefined}
+          onClick={canRead ? onRead : undefined}
+        >
+          <CoverImage
+            book={{ id: book.id, title: book.title, normTitle: book.normTitle, md5: book.md5 }}
+            get={showCover ? () => getCover(book) : undefined}
+          />
+        </div>
+      )}
+      <div class={list ? 'flex min-w-0 flex-1 flex-col gap-1' : 'contents'}>
+      <h3 class={`line-clamp-2 text-fluid-sm font-medium text-ink ${list ? 'truncate' : ''}`}>{book.title}</h3>
 
       {badges.length > 0 && (
         <div class="flex flex-wrap gap-1">
@@ -82,6 +88,7 @@ export function BookCard({ card, online, getCover, showCover = false, preparing,
         ) : (
           <IconButton icon="cloud-off" label="Cần mạng để tải" disabled />
         )}
+      </div>
       </div>
     </article>
   )

@@ -10,7 +10,7 @@ import { useLiveQuery } from '../useLiveQuery'
 import { IconButton, IconTextButton } from '../icons/Icon'
 import { BookCard } from './BookCard'
 import { buildCards, type CardModel } from './library-model'
-import { filter, query } from './library-state'
+import { filter, layout, query, setLayout } from './library-state'
 import { SearchBar } from './SearchBar'
 import { useIncrementalList } from './useIncrementalList'
 
@@ -33,8 +33,13 @@ function cacheErrorText(e: unknown): string {
   if (kind === 'offline') return 'Cần kết nối mạng để tải truyện này lần đầu'
   if (kind === 'quota') return 'Bộ nhớ đầy — hãy xoá bớt truyện đã lưu'
   if (kind === 'not-found') return 'Không tìm thấy truyện'
-  return 'Không tải được truyện'
+  return 'Không tải được truyện — Google Drive có thể đang giới hạn truy cập, thử lại sau ít phút'
 }
+
+const LAYOUTS = [
+  { value: 'grid', label: 'Lưới', icon: 'filter-all' },
+  { value: 'list', label: 'Danh sách', icon: 'toc' },
+] as const
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -222,6 +227,23 @@ export function LibraryPage({ services }: LibraryPageProps) {
           })}
         </div>
 
+        <div role="radiogroup" aria-label="Kiểu hiển thị" class="flex gap-2">
+          {LAYOUTS.map((o) => {
+            const on = layout.value === o.value
+            return (
+              <IconTextButton
+                key={o.value}
+                role="radio"
+                checked={on}
+                icon={o.icon}
+                label={o.label}
+                variant={on ? 'primary' : 'plain'}
+                onClick={() => setLayout(o.value)}
+              />
+            )
+          })}
+        </div>
+
         <div class="flex items-center gap-1">
           {line && <span aria-live="polite" class="text-fluid-sm text-ink-muted">{line}</span>}
           {status.state === 'error' && (
@@ -257,10 +279,11 @@ export function LibraryPage({ services }: LibraryPageProps) {
         <p class="py-8 text-center text-fluid-base text-ink-muted">Không tìm thấy truyện nào</p>
       )}
 
-      <div class={GRID}>
+      <div class={layout.value === 'list' ? 'flex flex-col divide-y divide-black/10' : GRID}>
         {visible.map((card) => (
           <BookCard
             key={card.book.id}
+            layout={layout.value}
             card={card}
             online={online}
             getCover={(b) => coverService.get(b)}
