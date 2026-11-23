@@ -7,13 +7,15 @@ export interface BookCardProps {
   card: CardModel
   online: boolean
   getCover: (b: Book) => Promise<Blob | null | undefined>
-  onRead: (id: string) => void
+  /** Percent while the file is being fetched into the cache before reading; undefined otherwise. */
+  preparing?: number
+  onRead: () => void
   onDownload: (card: CardModel) => void
 }
 
 const PILL = 'rounded-full bg-surface-2 px-2 py-0.5 text-fluid-sm text-ink'
 
-export function BookCard({ card, online, getCover, onRead, onDownload }: BookCardProps) {
+export function BookCard({ card, online, getCover, preparing, onRead, onDownload }: BookCardProps) {
   const { book, cached, stale, localOnly, fraction } = card
   const pct = fraction === undefined ? undefined : Math.round(fraction * 100)
   const canRead = online || cached
@@ -30,10 +32,15 @@ export function BookCard({ card, online, getCover, onRead, onDownload }: BookCar
       aria-label={book.title}
       class={`@container flex flex-col gap-2 ${dim ? 'opacity-60' : ''}`}
     >
-      <CoverImage
-        book={{ id: book.id, title: book.title, normTitle: book.normTitle, md5: book.md5 }}
-        get={() => getCover(book)}
-      />
+      <div
+        class={canRead ? 'cursor-pointer' : undefined}
+        onClick={canRead ? onRead : undefined}
+      >
+        <CoverImage
+          book={{ id: book.id, title: book.title, normTitle: book.normTitle, md5: book.md5 }}
+          get={() => getCover(book)}
+        />
+      </div>
       <h3 class="line-clamp-2 text-fluid-sm font-medium text-ink">{book.title}</h3>
 
       {badges.length > 0 && (
@@ -61,8 +68,10 @@ export function BookCard({ card, online, getCover, onRead, onDownload }: BookCar
       )}
 
       <div class="flex gap-2">
-        {canRead ? (
-          <IconButton icon="read" label="Đọc" variant="primary" onClick={() => onRead(book.id)} />
+        {preparing !== undefined ? (
+          <IconButton icon="download" label={`Đang tải ${preparing}%`} disabled />
+        ) : canRead ? (
+          <IconButton icon="read" label="Đọc" variant="primary" onClick={onRead} />
         ) : (
           <IconButton icon="cloud-off" label="Cần mạng để đọc" disabled />
         )}

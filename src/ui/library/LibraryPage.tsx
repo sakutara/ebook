@@ -1,9 +1,11 @@
-import { useLayoutEffect, useMemo, useRef } from 'preact/hooks'
+import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { AppDB, Book, BookFile, Progress } from '../../db/db'
 import type { Services } from '../../services'
 import { catalogStatus, type CatalogStatus } from '../../catalog/catalog-sync'
 import { syncStatus } from '../../sync/sync-engine'
 import { navigate } from '../../router'
+import { getBookFile, CacheError } from '../../cache/book-cache'
+import { showToast } from '../toast-store'
 import { useLiveQuery } from '../useLiveQuery'
 import { IconButton, IconTextButton } from '../icons/Icon'
 import { BookCard } from './BookCard'
@@ -127,7 +129,42 @@ export function LibraryPage({ services }: LibraryPageProps) {
     }
   }, [loaded, visible.length, catalogCards.length])
 
-  const onRead = (id: string) => navigate(`#/read/${encodeURIComponent(id)}`)
+  // Percent per book id while its file is being fetched into the cache before reading.
+  const [preparing, setPreparing] = useState<Record<string, number>>({})
+  const setPct = (id: string, pct: number | null) =>
+    setPreparing((m) => {
+      const { [id]: _drop, ...rest } = m
+      return pct === null ? rest : { ...rest, [id]: pct }
+    })
+
+  const openReader = (id: string) => navigate(`#/read/${encodeURIComponent(id)}`)
+
+  // Reading needs the file in the cache first: download it, then open the reader.
+  const onRead = async (card: CardModel) => {
+    const id = card.book.id
+    if (card.cached || preparing[id] !== undefined) {
+      if (card.cached) openReader(id)
+      return
+    }
+    setPct(id, 0)
+    try {
+      await getBookFile({ db, api }, id, { onProgress: (pct) => setPct(id, pct) })
+      openReader(id)
+    } catch (e) {
+      const kind = e instanceof CacheError ? e.kind : 'network'
+      showToast(
+        kind === 'offline'
+          ? 'Cần kết nối mạng để tải truyện này lần đầu'
+          : kind === 'quota'
+            ? 'Bộ nhớ đầy — hãy xoá bớt truyện đã lưu'
+            : kind === 'not-found'
+              ? 'Không tìm thấy truyện'
+              : 'Không tải được truyện',
+      )
+    } finally {
+      setPct(id, null)
+    }
+  }
 
   const onDownload = async (card: CardModel) => {
     const { book } = card
@@ -214,7 +251,8 @@ export function LibraryPage({ services }: LibraryPageProps) {
             card={card}
             online={online}
             getCover={(b) => coverService.get(b)}
-            onRead={onRead}
+            preparing={preparing[card.book.id]}
+            onRead={() => void onRead(card)}
             onDownload={(c) => void onDownload(c)}
           />
         ))}

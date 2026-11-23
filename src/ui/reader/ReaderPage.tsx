@@ -176,7 +176,20 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
       adapter = a
       adapterRef.current = a
       if (cancelled) return
-      await a.open(file)
+      try {
+        await a.open(file)
+      } catch (err) {
+        if (cancelled) return
+        // The stored copy cannot be parsed (corrupt or truncated download). Drop it so that
+        // retrying downloads a fresh copy instead of failing on the same bytes forever.
+        console.warn('[reader] cached file unreadable, discarding it', err)
+        await db.bookFiles.delete(id)
+        a.destroy()
+        adapter = null
+        adapterRef.current = null
+        setView({ kind: 'error', error: 'network' })
+        return
+      }
       if (cancelled) return
       const loaded = await loadPrefs(db)
       a.setPrefs(prefsCss(loaded))
