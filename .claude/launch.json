@@ -20,6 +20,17 @@
       "port": 5199
     },
     {
+      "name": "dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "port": 5173
+    },
+    {
       "name": "worker-local",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
