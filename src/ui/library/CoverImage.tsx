@@ -35,15 +35,15 @@ export function CoverImage({ book, src, class: className }: CoverImageProps) {
   const showImg = src !== undefined && !failed
 
   const hue = placeholderHue(book.normTitle)
-  const base = 'relative aspect-[2/3] overflow-hidden rounded-lg bg-surface-2'
+  const base = 'relative aspect-[2/3] overflow-hidden rounded-md bg-surface-2 shadow-cover ring-1 ring-black/5'
 
   return (
     <div class={className ? `${base} ${className}` : base}>
       <div
         role="img"
         aria-label={book.title}
-        style={`background: hsl(${hue} 45% 40%)`}
-        class="flex size-full items-end p-2 text-white text-fluid-sm font-medium line-clamp-4"
+        style={`background: linear-gradient(160deg, hsl(${hue} 38% 38%), hsl(${(hue + 24) % 360} 42% 26%))`}
+        class="flex size-full items-end p-2.5 text-white font-serif text-fluid-sm font-semibold leading-snug line-clamp-4 border-l-4 border-white/20"
       >
         {book.title}
       </div>

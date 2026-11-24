@@ -13,10 +13,12 @@ import {
   type ReaderPrefs,
 } from '../../reader/prefs'
 import { restorePosition } from '../../reader/restore'
+import { goBack } from '../../router'
 import { buildAnchor, planRestore, type Anchor, type RelocateInfo } from '../../progress/anchor'
 import { getProgress, saveProgress } from '../../progress/progress-repo'
 import { createSaveScheduler } from '../../progress/save-scheduler'
-import { IconButton } from '../icons/Icon'
+import { Icon, IconButton } from '../icons/Icon'
+import { useBackClose } from '../useBackClose'
 import { ProgressBar } from '../ProgressBar'
 import { ReaderChrome } from './ReaderChrome'
 import { TocPanel, type TocEntry } from './TocPanel'
@@ -31,7 +33,7 @@ export interface ReaderDeps {
   ) => Promise<ReaderAdapter>
   getFile?: typeof getBookFile
   onNotice?: (text: string) => void
-  /** Default: location.hash = '#/' */
+  /** Default: goBack('#/') */
   onBack?: () => void
 }
 
@@ -42,6 +44,18 @@ type View =
   | { kind: 'error'; error: 'offline' | 'network' | 'quota' }
 
 type Sheet = null | 'toc' | 'prefs'
+
+const HINT_KEY = 'reader.tapHintSeen'
+/** How long the controls stay up after the book opens, before they fade out. */
+const CHROME_INTRO_MS = 3500
+
+function hintSeen(): boolean {
+  try {
+    return localStorage.getItem(HINT_KEY) === '1'
+  } catch {
+    return true
+  }
+}
 
 // Focused controls keep their own keys (range arrows, Space on a button).
 const CONTROL_TAGS = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON']
@@ -65,6 +79,29 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
   const [prefs, setPrefs] = useState<ReaderPrefs>(DEFAULT_PREFS)
   const [chrome, setChrome] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
+  const [hint, setHint] = useState(false)
+  const introTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useBackClose(sheet !== null, () => setSheet(null))
+
+  // Once the book is ready, show the controls for a moment so the way back is visible,
+  // and on the very first book explain the tap zones.
+  useEffect(() => {
+    if (view.kind !== 'ready') return
+    setChrome(true)
+    if (!hintSeen()) setHint(true)
+    introTimer.current = setTimeout(() => setChrome(false), CHROME_INTRO_MS)
+    return () => clearTimeout(introTimer.current)
+  }, [view.kind])
+
+  const dismissHint = (): void => {
+    setHint(false)
+    try {
+      localStorage.setItem(HINT_KEY, '1')
+    } catch {
+      // Storage unavailable: the hint shows again next time.
+    }
+  }
 
   // Keyed on the book id and the retry counter only. Other deps (db, getFile, ...)
   // are read once per load so that parent re-renders do not reload the book.
@@ -119,7 +156,10 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
       }
       if (x < w * 0.3) void a.prev()
       else if (x > w * 0.7) void a.next()
-      else setChrome((c) => !c)
+      else {
+        clearTimeout(introTimer.current)
+        setChrome((c) => !c)
+      }
     }
 
     const onSectionLoad = (doc: Document): void => {
@@ -248,7 +288,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
 
   const back = (): void => {
     if (p.onBack) p.onBack()
-    else location.hash = '#/'
+    else goBack('#/')
   }
 
   const changePrefs = async (next: ReaderPrefs): Promise<void> => {
@@ -273,7 +313,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
     <div class="fixed inset-0 flex bg-[var(--reader-bg)] text-[var(--reader-fg)]" style={cssVars}>
       <aside
         aria-label="Mục lục"
-        class="hidden w-80 shrink-0 overflow-y-auto border-e border-black/10 p-gutter lg:block"
+        class="hidden w-80 shrink-0 overflow-y-auto border-e border-current/10 p-gutter lg:block"
       >
         <TocPanel variant="panel" toc={toc} onSelect={goTo} disabled={view.kind !== 'ready'} />
       </aside>
@@ -293,10 +333,12 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
 
         {view.kind === 'not-found' && (
           <div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[var(--reader-bg)] p-gutter text-center">
-            <p class="text-fluid-lg">Không tìm thấy truyện</p>
+            <Icon name="cloud-off" class="size-10 opacity-60" />
+            <p class="font-serif text-fluid-lg font-semibold">Không tìm thấy truyện</p>
+            <p class="max-w-xs text-fluid-sm opacity-75">Truyện có thể đã bị gỡ khỏi máy chủ.</p>
             <a
               href="#/"
-              class="inline-flex min-h-11 items-center rounded-xl bg-accent px-4 text-fluid-sm text-surface"
+              class="inline-flex min-h-11 items-center rounded-full bg-accent px-5 text-fluid-sm font-medium text-on-accent"
             >
               Về thư viện
             </a>
@@ -306,13 +348,17 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
         {view.kind === 'error' && (
           <div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[var(--reader-bg)] p-gutter text-center">
             {view.error === 'offline' && (
-              <p class="text-fluid-base">Cần kết nối mạng để tải truyện này lần đầu</p>
+              <>
+                <Icon name="cloud-off" class="size-10 opacity-60" />
+                <p class="text-fluid-base">Cần kết nối mạng để tải truyện này lần đầu</p>
+                <p class="max-w-xs text-fluid-sm opacity-75">Kết nối mạng rồi mở lại, hoặc chọn một truyện đã lưu.</p>
+              </>
             )}
             {view.error === 'network' && (
               <>
                 <p class="text-fluid-base">Không tải được truyện</p>
                 <p class="text-fluid-sm opacity-70">Không tải được truyện, thử lại sau</p>
-                <IconButton icon="retry" label="Thử lại" onClick={() => setAttempt((n) => n + 1)} />
+                <IconButton icon="retry" label="Thử lại" variant="primary" onClick={() => setAttempt((n) => n + 1)} />
               </>
             )}
             {view.error === 'quota' && (
@@ -320,13 +366,41 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
                 <p class="text-fluid-base">Bộ nhớ đầy — hãy xoá bớt truyện đã lưu</p>
                 <a
                   href="#/settings"
-                  class="inline-flex min-h-11 items-center rounded-xl bg-accent px-4 text-fluid-sm text-surface"
+                  class="inline-flex min-h-11 items-center rounded-full bg-accent px-5 text-fluid-sm font-medium text-on-accent"
                 >
                   Mở Cài đặt
                 </a>
               </>
             )}
           </div>
+        )}
+
+        {!showChrome && (
+          <button
+            type="button"
+            aria-label="Về thư viện"
+            title="Về thư viện"
+            onClick={back}
+            class="absolute start-2 top-[max(0.5rem,env(safe-area-inset-top))] z-20 inline-flex size-11 cursor-pointer items-center justify-center rounded-full opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+          >
+            <Icon name="back" />
+          </button>
+        )}
+
+        {hint && view.kind === 'ready' && (
+          <button
+            type="button"
+            aria-label="Đã hiểu cách lật trang"
+            onClick={dismissHint}
+            class="absolute inset-0 z-30 grid cursor-pointer grid-cols-[3fr_4fr_3fr] bg-black/60 text-center text-fluid-sm font-medium text-white"
+          >
+            <span class="flex items-center justify-center border-e border-dashed border-white/40 p-2">← Trang trước</span>
+            <span class="flex flex-col items-center justify-center gap-1 p-2">
+              <span>Chạm giữa để mở menu</span>
+              <span class="opacity-75">(chạm để bắt đầu đọc)</span>
+            </span>
+            <span class="flex items-center justify-center border-s border-dashed border-white/40 p-2">Trang sau →</span>
+          </button>
         )}
 
         {showChrome && (

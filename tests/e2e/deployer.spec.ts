@@ -122,6 +122,9 @@ test.describe('deployer', () => {
 
     await pickTwoBooks(page)
     const pham = page.getByRole('article', { name: 'Phàm Nhân Tu Tiên' })
+    await expect(pham.getByText('pham-nhan-tu-tien/', { exact: false })).toBeVisible()
+    // The fields fold away until "Sửa thông tin" is opened.
+    await pham.getByText('Sửa thông tin').click()
     await expect(pham.getByLabel('Thư mục (slug)')).toHaveValue('pham-nhan-tu-tien')
     await expect(pham.getByRole('button', { name: 'Tiên hiệp' })).toHaveAttribute('aria-pressed', 'true')
 

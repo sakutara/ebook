@@ -62,7 +62,7 @@ async function refreshCatalog(page: Page, r2: R2MockController, { waitForDownloa
   const before = r2.count(epubPath(BOOK_ID))
   await page.getByRole('button', REFRESH).click()
   await expect.poll(() => r2.count(epubPath(BOOK_ID))).toBeGreaterThan(before)
-  if (waitForDownload) await expect(bookCard(page)).toContainText(CACHED_BADGE)
+  if (waitForDownload) await expect(bookCard(page).getByRole('img', { name: CACHED_BADGE })).toBeVisible()
 }
 
 test.describe('resume', () => {

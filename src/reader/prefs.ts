@@ -9,9 +9,9 @@ export interface ReaderPrefs {
 export const DEFAULT_PREFS: ReaderPrefs = { fontScale: 1, lineHeight: 1.6, theme: 'light' }
 
 export const THEMES = {
-  light: { fg: '#1f2937', bg: '#ffffff' },
-  sepia: { fg: '#433422', bg: '#f4ecd8' },
-  dark: { fg: '#d1d5db', bg: '#111827' },
+  light: { fg: '#2b2118', bg: '#faf6ee' },
+  sepia: { fg: '#433422', bg: '#f1e6cc' },
+  dark: { fg: '#e0d6c4', bg: '#16120e' },
 } as const
 
 const LINE_HEIGHTS: readonly number[] = [1.4, 1.6, 1.8]

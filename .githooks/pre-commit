@@ -1,0 +1,14 @@
+#!/bin/sh
+# On main, every commit must ship a fresh build: docs/ is the published site, so it has to match main.
+# Builds docs/ and stages it with the commit. A failed build aborts the commit.
+# Skip for one commit with `git commit --no-verify` (not recommended on main).
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+[ "$branch" = "main" ] || exit 0
+
+echo "pre-commit: main — building docs/ before commit..."
+if ! npm run build; then
+  echo "pre-commit: build failed, commit aborted." >&2
+  exit 1
+fi
+git add docs
+echo "pre-commit: docs/ rebuilt and staged."

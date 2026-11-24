@@ -1,3 +1,4 @@
+import { tapRead } from './reader-helpers'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { coverPath, epubPath, makeLibrary, mockR2 } from './r2-mock'
 
@@ -50,7 +51,7 @@ test('library.layout.narrow / library.layout.wide: grid columns, navigation, gen
   } else {
     await expect(side).toBeVisible()
     await expect(tabs).toBeHidden()
-    // Status filter sits above; genre chips and author select share the next row, select on the right.
+    // Status filter and author select share one row; the genre chips sit on the row below.
     const author = page.getByRole('combobox', { name: TOOLBAR_AUTHOR })
     const boxes = [await page.getByRole('radiogroup', { name: TOOLBAR_STATUS }).boundingBox(), await genreRow.boundingBox(), await author.boundingBox()]
     if (boxes.some((b) => b === null)) throw new Error('toolbar control has no bounding box')
@@ -69,8 +70,9 @@ test('library.layout.narrow / library.layout.wide: grid columns, navigation, gen
       expect(cb.y + cb.height).toBeLessThanOrEqual(group.y + group.height + 1)
     }
 
-    expect(select.x, 'author select sits to the right of the genre chips').toBeGreaterThanOrEqual(group.x + group.width - 1)
-    expect(Math.abs(select.y - group.y), 'author select and genre chips share the top').toBeLessThanOrEqual(8)
+    expect(select.x, 'author select sits to the right of the status filter').toBeGreaterThanOrEqual(status.x + status.width - 1)
+    expect(Math.abs(select.y + select.height / 2 - (status.y + status.height / 2)), 'author select and status filter share a row').toBeLessThanOrEqual(4)
+    expect(group.y, 'genre chips sit below the author select').toBeGreaterThanOrEqual(select.y + select.height - 1)
 
     // At 820 px (md, narrow side nav) the chips must still fit inside their box and clear the select.
     await page.setViewportSize({ width: 820, height: 800 })
@@ -99,7 +101,7 @@ test('app-shell.routes.reader-fullscreen: reader hides navigation and back butto
   const dpk = card(page)
   await expect(dpk).toBeVisible()
 
-  await dpk.getByRole('button', { name: 'Đọc', exact: true }).click()
+  await tapRead(page, dpk)
   await expect(page).toHaveURL(new RegExp(`#/read/${DPK_ID}$`))
   await expect(page.getByRole('navigation', { name: TABS })).toHaveCount(0)
   await expect(page.getByRole('navigation', { name: SIDE })).toHaveCount(0)
@@ -112,7 +114,7 @@ test('app-shell.routes.reader-fullscreen: reader hides navigation and back butto
   }
   await back.click()
 
-  await expect(page).toHaveURL(/#\/$/)
+  await expect(page).toHaveURL(/\/(#\/)?$/)
   await expect(page.getByRole('searchbox', { name: SEARCH })).toHaveValue('dau')
   await expect(card(page)).toBeVisible()
 })
@@ -138,7 +140,7 @@ test('app-shell.routes.reader-fullscreen: scroll position is kept when returning
   })
   if (!visibleTitle) throw new Error('no fully visible card to open')
   const visible = page.getByRole('article', { name: visibleTitle, exact: true })
-  await visible.getByRole('button', { name: 'Đọc', exact: true }).click()
+  await tapRead(page, visible)
   await expect(page).toHaveURL(/#\/read\//)
 
   const back = page.getByRole('button', { name: 'Về thư viện' })
@@ -148,7 +150,7 @@ test('app-shell.routes.reader-fullscreen: scroll position is kept when returning
     await page.mouse.click(vp.width / 2, vp.height / 2)
   }
   await back.click()
-  await expect(page).toHaveURL(/#\/$/)
+  await expect(page).toHaveURL(/\/(#\/)?$/)
 
   // Cards render after the live queries load, so poll until the scroll restore settles.
   await expect
@@ -205,7 +207,7 @@ test('library.progress.shown: a delayed EPUB download shows a progress bar on it
   const c = card(page)
   await expect(c).toBeVisible()
 
-  await c.getByRole('button', { name: 'Đọc', exact: true }).click()
+  await tapRead(page, c)
   await expect(c.getByRole('progressbar', { name: 'Đang tải truyện' })).toBeVisible()
   await expect(c.getByText(/^Đang tải/)).toBeVisible()
   await expect(c.getByRole('button', { name: 'Đọc', exact: true })).toHaveCount(0)

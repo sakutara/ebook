@@ -9,8 +9,11 @@ import { isSlug } from '../../domain/slug'
 import { epubFileName } from '../../domain/file-name'
 import { showToast } from '../toast-store'
 import { useLiveQuery } from '../useLiveQuery'
-import { IconButton, IconTextButton } from '../icons/Icon'
+import { Icon, IconButton } from '../icons/Icon'
+import { removeSavedCopy } from '../cache-actions'
 import { BookCard } from './BookCard'
+import { BookSheet } from './BookSheet'
+import { CoverImage } from './CoverImage'
 import { authorOptions, buildCards, genreOptions, type CardModel } from './library-model'
 import { author, clearFilters, filter, genre, query } from './library-state'
 import { SearchBar } from './SearchBar'
@@ -21,14 +24,21 @@ export interface LibraryPageProps {
 }
 
 type FileMeta = Pick<BookFile, 'bookId' | 'md5' | 'modifiedTime'>
-type ProgressMeta = Pick<Progress, 'bookId' | 'fraction' | 'deleted'>
+type ProgressMeta = Pick<Progress, 'bookId' | 'fraction' | 'deleted' | 'updatedAt'>
 
 const SCROLL_KEY = 'library.scrollY'
-const GRID = 'grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]'
+/** Book last opened from the library; the grid scrolls it into view on return. */
+const LAST_KEY = 'library.lastOpened'
+/** Books read past this fraction count as finished and leave the "Đọc tiếp" row. */
+const FINISHED = 0.99
+const GRID = 'grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]'
 const FILTERS = [
   { value: 'all', label: 'Tất cả', icon: 'filter-all' },
   { value: 'saved', label: 'Đã lưu', icon: 'filter-saved' },
 ] as const
+
+const SEGMENT =
+  'inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full px-3 text-fluid-sm font-medium transition-colors duration-150 aria-checked:bg-accent aria-checked:text-on-accent aria-checked:shadow-sm'
 
 function cacheErrorText(e: unknown): string {
   const kind = e instanceof CacheError ? e.kind : 'network'
@@ -68,6 +78,7 @@ async function loadProgress(db: AppDB): Promise<ProgressMeta[]> {
     bookId: p.bookId,
     fraction: p.fraction,
     deleted: p.deleted,
+    updatedAt: p.updatedAt,
   }))
 }
 
@@ -86,8 +97,8 @@ export function LibraryPage({ services }: LibraryPageProps) {
 
   // `undefined` means "not delivered yet": the grid waits for all three queries.
   const books = useLiveQuery<Book[] | undefined>(() => db.books.orderBy('normTitle').toArray(), [db], undefined)
-  const files = useLiveQuery<FileMeta[] | undefined>(() => loadFiles(db), [db], undefined)
   const progress = useLiveQuery<ProgressMeta[] | undefined>(() => loadProgress(db), [db], undefined)
+  const files = useLiveQuery<FileMeta[] | undefined>(() => loadFiles(db), [db], undefined)
   const loaded = books !== undefined && files !== undefined && progress !== undefined
 
   const q = query.value
@@ -154,6 +165,16 @@ export function LibraryPage({ services }: LibraryPageProps) {
     try {
       const saved = Number(sessionStorage.getItem(SCROLL_KEY) ?? 0)
       if (saved > 0) window.scrollTo(0, saved)
+      // Make sure the book just read is on screen, whatever the filter rows did to the offset.
+      const last = sessionStorage.getItem(LAST_KEY)
+      sessionStorage.removeItem(LAST_KEY)
+      if (last) {
+        const el = document.querySelector(`[data-book-id="${CSS.escape(last)}"]`)
+        const rect = el?.getBoundingClientRect()
+        if (el && rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
+          el.scrollIntoView?.({ block: 'center' })
+        }
+      }
     } catch {
       // Storage or scrolling unavailable: start at the top.
     }
@@ -203,7 +224,19 @@ export function LibraryPage({ services }: LibraryPageProps) {
 
   const onCancel = (id: string) => controllers.current.get(id)?.abort()
 
-  const openReader = (id: string) => navigate(`#/read/${encodeURIComponent(id)}`)
+  const openReader = (id: string) => {
+    try {
+      sessionStorage.setItem(LAST_KEY, id)
+    } catch {
+      // Storage unavailable: the scroll position alone is restored.
+    }
+    navigate(`#/read/${encodeURIComponent(id)}`)
+  }
+
+  // The action sheet for the tapped cover. Read the card fresh from the list on each render so
+  // its badges follow downloads and removals while it is open.
+  const [sheetId, setSheetId] = useState<string | null>(null)
+  const sheetCard = sheetId === null ? undefined : catalogCards.find((c) => c.book.id === sheetId)
 
   // Reading needs the file in the cache first: a cached book opens at once, otherwise fetch then open.
   const onRead = (card: CardModel) => {
@@ -238,126 +271,213 @@ export function LibraryPage({ services }: LibraryPageProps) {
   const coverUrlOf = (b: Book): string | undefined =>
     source && b.inDrive === 1 && isSlug(b.id) ? source.coverUrl(b) : undefined
 
+  // Started but unfinished books, most recently read first.
+  const continueCards = useMemo(() => {
+    if (!loaded) return []
+    const updated = new Map((progress ?? []).filter((x) => x.deleted === 0).map((x) => [x.bookId, x.updatedAt]))
+    return catalogCards
+      .filter((c) => c.fraction !== undefined && c.fraction > 0 && c.fraction < FINISHED)
+      .sort((x, y) => (updated.get(y.book.id) ?? 0) - (updated.get(x.book.id) ?? 0))
+      .slice(0, 12)
+  }, [loaded, catalogCards, progress])
+  const showContinue = !hasFilters && f === 'all' && continueCards.length > 0
+
   const genreChips = [
-    { value: '', text: 'Tất cả thể loại' },
-    ...genres.map((o) => ({ value: o.value, text: `${o.label} ${o.count}` })),
+    { value: '', label: 'Tất cả thể loại', count: undefined as number | undefined },
+    ...genres.map((o) => ({ value: o.value, label: o.label, count: o.count as number | undefined })),
   ]
 
   const line = statusLine(status)
+  const syncing = status.state === 'syncing'
 
   return (
-    <section class="flex flex-col gap-3 py-3">
-      <div class="flex items-center gap-2">
-        <SearchBar />
-      </div>
+    <section class="flex flex-col gap-4 py-3">
+      <div class="flex flex-col gap-2.5">
+        <div class="flex items-center gap-2">
+          <SearchBar />
+          {config && (
+            <IconButton
+              icon={status.state === 'error' ? 'retry' : 'refresh'}
+              label={status.state === 'error' ? 'Thử lại' : 'Làm mới'}
+              disabled={syncing}
+              class={syncing ? '[&_svg]:animate-spin motion-reduce:[&_svg]:animate-none' : ''}
+              onClick={() => void catalogSync.sync({ force: true })}
+            />
+          )}
+        </div>
 
-      <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div role="radiogroup" aria-label="Bộ lọc" class="flex gap-2">
+        <div class="flex items-center gap-2">
+          <div role="radiogroup" aria-label="Bộ lọc" class="flex shrink-0 gap-0.5 rounded-full border border-line bg-surface-2 p-0.5">
             {FILTERS.map((o) => {
               const on = f === o.value
               return (
-                <IconTextButton
-                  key={o.value}
-                  role="radio"
-                  checked={on}
-                  icon={o.icon}
-                  label={o.label}
-                  variant={on ? 'primary' : 'plain'}
-                  onClick={() => {
-                    filter.value = o.value
-                  }}
-                />
-              )
-            })}
-          </div>
-
-          <div class="flex items-center gap-1">
-            {line && <span aria-live="polite" class="text-fluid-sm text-ink-muted">{line}</span>}
-            {status.state === 'error' && (
-              <IconButton icon="retry" label="Thử lại" onClick={() => void catalogSync.sync({ force: true })} />
-            )}
-            {config && (
-              <IconButton
-                icon="refresh"
-                label="Làm mới"
-                disabled={status.state === 'syncing'}
-                onClick={() => void catalogSync.sync({ force: true })}
-              />
-            )}
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-3 md:flex-row md:items-start">
-          <div
-            role="radiogroup"
-            aria-label="Thể loại"
-            class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:min-w-0 md:flex-1 md:flex-wrap md:overflow-visible md:px-0"
-          >
-            {genreChips.map((chip) => {
-              const on = genreValue === chip.value
-              return (
                 <button
-                  key={chip.value || 'all'}
+                  key={o.value}
                   type="button"
                   role="radio"
                   aria-checked={on}
                   onClick={() => {
-                    genre.value = chip.value
+                    filter.value = o.value
                   }}
-                  class={`min-h-11 shrink-0 rounded-full px-3 text-fluid-sm ${on ? 'bg-accent text-white' : 'bg-surface-2 text-ink'}`}
+                  class={`${SEGMENT} ${on ? '' : 'text-ink-muted hover:text-ink'}`}
                 >
-                  {chip.text}
+                  <Icon name={o.icon} class="hidden size-5 sm:inline-flex" />
+                  {o.label}
                 </button>
               )
             })}
           </div>
 
-          <select
-            aria-label="Tác giả"
-            value={authorValue}
-            onChange={(e) => {
-              author.value = (e.currentTarget as HTMLSelectElement).value
-            }}
-            class="min-h-11 w-full rounded-lg bg-surface-2 px-3 text-fluid-base text-ink md:w-56 md:shrink-0"
-          >
-            <option value="">Tất cả tác giả</option>
-            {authors.map((o) => (
-              <option key={o.value} value={o.value}>
-                {`${o.label} (${o.count})`}
-              </option>
-            ))}
-          </select>
+          <label class="relative min-w-0 flex-1 md:max-w-xs">
+            <span class="sr-only">Tác giả</span>
+            <select
+              aria-label="Tác giả"
+              value={authorValue}
+              onChange={(e) => {
+                author.value = (e.currentTarget as HTMLSelectElement).value
+              }}
+              class={`min-h-11 w-full cursor-pointer appearance-none truncate rounded-full border bg-surface ps-4 pe-9 text-fluid-sm transition-colors hover:border-ink-muted ${authorValue ? 'border-accent font-semibold text-accent' : 'border-line text-ink'}`}
+            >
+              <option value="">Mọi tác giả</option>
+              {authors.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {`${o.label} (${o.count})`}
+                </option>
+              ))}
+            </select>
+            <span aria-hidden="true" class="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-ink-muted">▾</span>
+          </label>
         </div>
 
-        {hasFilters && (
-          <button
-            type="button"
-            onClick={clearFilters}
-            class="min-h-11 shrink-0 rounded-xl px-3 text-fluid-sm text-accent hover:underline"
-          >
-            Xoá bộ lọc
-          </button>
+        <div
+          role="radiogroup"
+          aria-label="Thể loại"
+          class="-mx-gutter flex gap-2 overflow-x-auto px-gutter pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
+        >
+          {genreChips.map((chip) => {
+            const on = genreValue === chip.value
+            return (
+              <button
+                key={chip.value || 'all'}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  genre.value = chip.value
+                }}
+                class="chip gap-2 text-fluid-sm"
+              >
+                <span>{chip.label}</span>
+                {chip.count !== undefined && (
+                  <>
+                    {' '}
+                    <span
+                      class={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${on ? 'bg-on-accent/20 text-on-accent' : 'bg-surface-2 text-ink-muted'}`}
+                    >
+                      {chip.count}
+                    </span>
+                  </>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {(hasFilters || line) && (
+          <div class="flex min-h-6 items-center justify-between gap-2 text-fluid-sm text-ink-muted">
+            <span aria-live="polite" class={status.state === 'error' ? 'text-danger' : ''}>
+              {hasFilters ? `${cards.length} truyện phù hợp` : line}
+            </span>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                class="inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-full px-3 font-medium text-accent hover:bg-surface-2"
+              >
+                <Icon name="close" class="size-4" />
+                Xoá bộ lọc
+              </button>
+            )}
+          </div>
         )}
       </div>
 
-      {!config && <p role="note" class="text-fluid-sm text-ink-muted">Chưa cấu hình máy chủ truyện</p>}
+      {!config && (
+        <p role="note" class="card flex items-center gap-2 p-3 text-fluid-sm text-ink-muted">
+          <Icon name="cloud-off" class="size-5" />
+          Chưa cấu hình máy chủ truyện
+        </p>
+      )}
 
-      {(!loaded || (catalogCards.length === 0 && status.state === 'syncing')) && (
+      {showContinue && (
+        <section aria-labelledby="continue-heading" class="flex flex-col gap-2">
+          <h2 id="continue-heading" class="text-fluid-lg font-semibold">
+            Đọc tiếp
+          </h2>
+          <ul class="-mx-gutter flex snap-x gap-3 overflow-x-auto px-gutter pb-1 [scrollbar-width:none]">
+            {continueCards.map((c) => (
+              <li key={c.book.id} class="w-28 shrink-0 snap-start sm:w-32">
+                <button
+                  type="button"
+                  data-continue
+                  aria-label={`Đọc tiếp ${c.book.title}`}
+                  disabled={fetching[c.book.id] !== undefined || (!c.cached && !canFetch)}
+                  onClick={() => onRead(c)}
+                  class="flex w-full cursor-pointer flex-col gap-1.5 text-start disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span class="relative block">
+                    <CoverImage book={{ title: c.book.title, normTitle: c.book.normTitle }} src={coverUrlOf(c.book)} />
+                    <span class="absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-md bg-black/35">
+                      <span class="block h-full bg-accent-on-ink" style={{ width: `${Math.round((c.fraction ?? 0) * 100)}%` }} />
+                    </span>
+                  </span>
+                  <span class="line-clamp-1 text-fluid-sm font-medium">{c.book.title}</span>
+                  <span class="-mt-1 text-xs tabular-nums text-ink-muted">
+                    {fetching[c.book.id] !== undefined
+                      ? 'Đang tải…'
+                      : (c.fraction ?? 0) < 0.01
+                        ? 'Vừa bắt đầu'
+                        : `${Math.round((c.fraction ?? 0) * 100)}%`}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {showContinue && (
+        <h2 class="-mb-1 text-fluid-lg font-semibold">Tất cả truyện</h2>
+      )}
+
+      {(!loaded || (catalogCards.length === 0 && syncing)) && (
         <div class={GRID} aria-hidden="true">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} class="flex flex-col gap-2">
-              <div class="aspect-[2/3] animate-pulse rounded-lg bg-surface-2 motion-reduce:animate-none" />
+              <div class="aspect-[2/3] animate-pulse rounded-md bg-surface-2 motion-reduce:animate-none" />
+              <div class="h-4 w-3/4 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
             </div>
           ))}
         </div>
       )}
 
-      {loaded && catalogCards.length === 0 && status.state !== 'syncing' && (
-        <p class="py-8 text-center text-fluid-base text-ink-muted">Chưa có truyện nào</p>
+      {loaded && catalogCards.length === 0 && !syncing && (
+        <div class="flex flex-col items-center gap-2 py-12 text-center">
+          <Icon name="library" class="size-10 text-ink-muted" />
+          <p class="font-serif text-fluid-lg font-semibold">Chưa có truyện nào</p>
+          <p class="max-w-xs text-fluid-sm text-ink-muted">
+            {config ? 'Thư viện sẽ hiện ở đây sau khi cập nhật từ máy chủ.' : 'Cần cấu hình máy chủ truyện để tải danh sách.'}
+          </p>
+        </div>
       )}
       {loaded && catalogCards.length > 0 && cards.length === 0 && (
-        <p class="py-8 text-center text-fluid-base text-ink-muted">Không tìm thấy truyện nào</p>
+        <div class="flex flex-col items-center gap-2 py-12 text-center">
+          <Icon name="search" class="size-10 text-ink-muted" />
+          <p class="font-serif text-fluid-lg font-semibold">Không tìm thấy truyện nào</p>
+          <p class="max-w-xs text-fluid-sm text-ink-muted">
+            {f === 'saved' && !hasFilters ? 'Chưa có truyện nào được lưu trên máy.' : 'Thử từ khoá khác hoặc bỏ bớt bộ lọc.'}
+          </p>
+        </div>
       )}
 
       <div class={GRID}>
@@ -368,14 +488,34 @@ export function LibraryPage({ services }: LibraryPageProps) {
             online={canFetch}
             coverUrl={coverUrlOf(card.book)}
             progress={fetching[card.book.id]}
-            onRead={() => onRead(card)}
-            onDownload={(c) => void onDownload(c)}
+            onOpen={(c) => setSheetId(c.book.id)}
             onCancel={() => onCancel(card.book.id)}
           />
         ))}
       </div>
 
       {hasMore && <div ref={sentinelRef} aria-hidden="true" />}
+
+      {sheetCard && (
+        <BookSheet
+          card={sheetCard}
+          online={canFetch}
+          coverUrl={coverUrlOf(sheetCard.book)}
+          onClose={() => setSheetId(null)}
+          onRead={() => {
+            setSheetId(null)
+            onRead(sheetCard)
+          }}
+          onDownload={() => {
+            setSheetId(null)
+            void onDownload(sheetCard)
+          }}
+          onRemoveSaved={() => {
+            setSheetId(null)
+            void removeSavedCopy(db, sheetCard.book.id, sheetCard.book.title)
+          }}
+        />
+      )}
     </section>
   )
 }

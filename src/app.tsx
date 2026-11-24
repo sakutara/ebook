@@ -5,7 +5,7 @@ import { route, type Route } from './router'
 import type { DonateConfig } from './config'
 import { Icon, IconButton, type IconName } from './ui/icons/Icon'
 import { Toast } from './ui/Toast'
-import { DonateBanner } from './ui/donate/DonateBanner'
+import { DonateBanner, donateHidden } from './ui/donate/DonateBanner'
 
 export interface Pages {
   library: ComponentType
@@ -28,7 +28,8 @@ export function SyncBadge() {
       : 'Đã đồng bộ'
     : `Ngoại tuyến${s.pending ? ` · ${s.pending} chờ` : ''}`
   return (
-    <span role="status" aria-label="Sync status" class="text-fluid-sm text-ink-muted">
+    <span role="status" aria-label="Sync status" class="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-muted">
+      <span aria-hidden="true" class={`size-1.5 rounded-full ${s.online ? 'bg-accent' : 'bg-ink-muted'}`} />
       {text}
     </span>
   )
@@ -43,7 +44,7 @@ function NavLinks({ current, class: cls }: { current: Route['name']; class: stri
           <a
             href={n.href}
             aria-current={active ? 'page' : undefined}
-            class={`${cls} min-h-11 items-center gap-2 rounded-lg px-3 text-fluid-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${active ? 'bg-surface-2 font-semibold text-accent' : 'text-ink hover:bg-surface-2'}`}
+            class={`${cls} min-h-11 items-center gap-2 rounded-xl px-3 text-fluid-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${active ? 'bg-surface-2 font-semibold text-accent' : 'text-ink-muted hover:bg-surface-2 hover:text-ink'}`}
           >
             <Icon name={n.icon} />
             <span>{n.label}</span>
@@ -56,7 +57,7 @@ function NavLinks({ current, class: cls }: { current: Route['name']; class: stri
 
 export function App({ pages, donate = null }: { pages: Pages; donate?: DonateConfig | null }) {
   const r = route.value
-  const showBanner = donate !== null
+  const showBanner = donate !== null && !donateHidden.value
 
   if (r.name === 'read') {
     return (
@@ -71,13 +72,19 @@ export function App({ pages, donate = null }: { pages: Pages; donate?: DonateCon
 
   return (
     <div class="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr]">
-      <nav aria-label="Điều hướng chính" class="hidden lg:flex lg:flex-col lg:gap-1 lg:border-r lg:border-surface-2 lg:p-gutter">
-        <NavLinks current={r.name} class="flex" />
-      </nav>
+      <div class="hidden lg:flex lg:flex-col lg:gap-4 lg:border-r lg:border-line lg:p-gutter">
+        <p class="flex items-center gap-2 px-3 py-2 font-serif text-fluid-lg font-semibold">
+          <Icon name="read" class="text-accent" />
+          Tủ Truyện
+        </p>
+        <nav aria-label="Điều hướng chính" class="sticky top-gutter flex flex-col gap-1">
+          <NavLinks current={r.name} class="flex" />
+        </nav>
+      </div>
 
       <div class="flex min-h-dvh flex-col">
-        <header class="sticky top-0 z-10 flex items-center justify-between bg-surface/90 px-gutter pt-[env(safe-area-inset-top)] backdrop-blur">
-          <h1 class="py-3 text-fluid-lg font-semibold">Tủ Truyện</h1>
+        <header class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-gutter pt-[env(safe-area-inset-top)] backdrop-blur">
+          <h1 class="py-3 font-serif text-fluid-xl font-semibold">{r.name === 'library' ? 'Tủ Truyện' : NAV.find((n) => n.name === r.name)?.label}</h1>
           <SyncBadge />
         </header>
 
@@ -86,7 +93,7 @@ export function App({ pages, donate = null }: { pages: Pages; donate?: DonateCon
         </main>
 
         {updateAvailable.value && (
-          <div role="alert" class={`fixed inset-x-gutter ${showBanner ? 'bottom-36' : 'bottom-20'} z-20 flex items-center justify-between gap-2 rounded-xl bg-ink p-3 text-surface ${showBanner ? 'lg:bottom-20' : 'lg:bottom-6'} lg:left-auto lg:w-96`}>
+          <div role="alert" class={`fixed inset-x-gutter ${showBanner ? 'bottom-36' : 'bottom-20'} z-20 flex items-center justify-between gap-2 rounded-2xl bg-ink p-3 text-surface shadow-float ${showBanner ? 'lg:bottom-20' : 'lg:bottom-6'} lg:left-auto lg:w-96`}>
             <span class="text-fluid-sm">Có phiên bản mới</span>
             <IconButton icon="update" label="Cập nhật phiên bản mới" variant="primary" onClick={() => applyUpdate()} />
           </div>
@@ -96,7 +103,7 @@ export function App({ pages, donate = null }: { pages: Pages; donate?: DonateCon
 
         <div class="fixed inset-x-0 bottom-0 z-10 lg:sticky lg:bottom-0 lg:inset-x-auto">
           <DonateBanner config={donate} />
-          <nav aria-label="Thanh điều hướng" class="flex border-t border-surface-2 bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+          <nav aria-label="Thanh điều hướng" class="flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
             <NavLinks current={r.name} class="flex flex-1 flex-col justify-center" />
           </nav>
         </div>

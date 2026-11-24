@@ -37,12 +37,11 @@ function model(over: Partial<CardModel> = {}, bookOver: Partial<Book> = {}): Car
 
 function renderCard(props: Partial<BookCardProps> = {}) {
   const handlers = {
-    onRead: vi.fn(),
-    onDownload: vi.fn(),
+    onOpen: vi.fn(),
     onCancel: vi.fn(),
   }
   const utils = render(
-    <BookCard card={model()} online={true} onRead={handlers.onRead} onDownload={handlers.onDownload} onCancel={handlers.onCancel} {...props} />,
+    <BookCard card={model()} online={true} onOpen={handlers.onOpen} onCancel={handlers.onCancel} {...props} />,
   )
   return { ...utils, ...handlers }
 }
@@ -57,28 +56,39 @@ function iconMarkup(name: Parameters<typeof Icon>[0]['name']): string {
 }
 
 const article = () => screen.getByRole('article', { name: 'Bản d' })
+const cover = () => within(article()).getByRole('button', { name: 'Mở Bản d' })
 
 describe('library.progress.shown', () => {
-  it('library.progress.shown: a progress value shows a progressbar with aria-valuenow and "Đang tải 25%"', () => {
+  it('library.progress.shown: a progress value shows a progressbar over the cover with aria-valuenow and "Đang tải 25%"', () => {
     renderCard({ progress: 25 })
 
     const bar = within(article()).getByRole('progressbar', { name: 'Đang tải truyện' })
     expect(bar).toHaveAttribute('aria-valuenow', '25')
     expect(within(article()).getByText('Đang tải 25%')).toBeInTheDocument()
+    // Overlay on the cover: it shares the cover's positioned box, no extra row below.
+    expect(bar.closest('.absolute')?.parentElement).toBe(cover().parentElement)
   })
 
-  it('library.progress.shown: while fetching, the Đọc and Tải buttons are not shown', () => {
+  it('library.progress.shown: while fetching, the cover cannot be tapped again', () => {
     renderCard({ progress: 25 })
 
-    expect(within(article()).queryByRole('button', { name: 'Đọc' })).toBeNull()
-    expect(within(article()).queryByRole('button', { name: 'Tải' })).toBeNull()
-    expect(within(article()).queryByRole('button', { name: 'Cần mạng để đọc' })).toBeNull()
+    expect(cover()).toBeDisabled()
   })
 
-  it('library.progress.shown: the reading-progress bar stays visible while a download runs', () => {
-    renderCard({ card: model({ fraction: 0.5 }), progress: 25 })
+  it('library.progress.hidden: once idle (saved), no download bar is shown', () => {
+    renderCard({ card: model({ cached: true }) })
 
+    expect(within(article()).queryByRole('progressbar', { name: 'Đang tải truyện' })).toBeNull()
+    expect(within(article()).queryByText(/Đang tải/)).toBeNull()
+  })
+
+  it('library.progress.shown: the reading-progress bar is hidden while a download runs and shown otherwise', () => {
+    const { rerender } = renderCard({ card: model({ fraction: 0.5 }), progress: 25 })
+    expect(within(article()).queryByRole('progressbar', { name: 'Tiến độ đọc' })).toBeNull()
+
+    rerender(<BookCard card={model({ fraction: 0.5 })} online={true} onOpen={vi.fn()} onCancel={vi.fn()} />)
     expect(within(article()).getByRole('progressbar', { name: 'Tiến độ đọc' })).toHaveAttribute('aria-valuenow', '50')
+    expect(within(article()).getByText('50%')).toBeInTheDocument()
   })
 })
 
@@ -127,59 +137,46 @@ describe('library.cover.local-only', () => {
 
     expect(article().querySelector('img')).toHaveAttribute('src', 'https://r2.test/books/d/cover.jpg')
   })
+})
 
-  it('library.cover.local-only: tapping the cover opens the book when it can be read', () => {
-    const { onRead } = renderCard({ card: model({ cached: true }) })
+describe('library.cover.open', () => {
+  it('library.cover.open: tapping the cover asks to open the action sheet with the card', () => {
+    const { onOpen } = renderCard({ card: model({ cached: true }) })
 
-    fireEvent.click(article().querySelector('[role="img"]')!)
-    expect(onRead).toHaveBeenCalledTimes(1)
+    fireEvent.click(cover())
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ book: expect.objectContaining({ id: 'd' }) }))
+    expect(cover()).toHaveAttribute('aria-haspopup', 'dialog')
+  })
+
+  it('library.cover.open: the card itself has no Đọc or Tải buttons', () => {
+    renderCard()
+
+    expect(within(article()).queryByRole('button', { name: 'Đọc' })).toBeNull()
+    expect(within(article()).queryByRole('button', { name: 'Tải' })).toBeNull()
   })
 })
 
 describe('library.read.offline-disabled', () => {
-  it('library.read.offline-disabled: offline and uncached, the read button is disabled with a cloud-off icon', () => {
+  it('library.read.offline-disabled: offline and uncached, the card is dimmed', () => {
     renderCard({ online: false })
 
-    const read = within(article()).getByRole('button', { name: 'Cần mạng để đọc' })
-    expect(read).toBeDisabled()
-    expect(read.querySelector('[aria-hidden="true"]')?.innerHTML).toBe(iconMarkup('cloud-off'))
     expect(article()).toHaveClass('opacity-60')
   })
 
-  it('library.read.offline-disabled: offline and uncached, the download button is disabled and named "Cần mạng để tải"', () => {
-    renderCard({ online: false })
+  it('library.read.offline-disabled: offline but cached, the card is not dimmed', () => {
+    renderCard({ online: false, card: model({ cached: true }) })
 
-    expect(within(article()).getByRole('button', { name: 'Cần mạng để tải' })).toBeDisabled()
-  })
-
-  it('library.read.offline-disabled: offline but cached, reading stays enabled and the card is not dimmed', () => {
-    const { onRead } = renderCard({ online: false, card: model({ cached: true }) })
-
-    const read = within(article()).getByRole('button', { name: 'Đọc' })
-    expect(read).toBeEnabled()
     expect(article()).not.toHaveClass('opacity-60')
-    fireEvent.click(read)
-    expect(onRead).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('library.read.fetch-first (card)', () => {
-  it('library.read.fetch-first: online and uncached, tapping "Đọc" calls onRead and the Tải button is present', () => {
-    const { onRead, onDownload } = renderCard()
-
-    fireEvent.click(within(article()).getByRole('button', { name: 'Đọc' }))
-    expect(onRead).toHaveBeenCalledTimes(1)
-
-    fireEvent.click(within(article()).getByRole('button', { name: 'Tải' }))
-    expect(onDownload).toHaveBeenCalledWith(expect.objectContaining({ book: expect.objectContaining({ id: 'd' }) }))
   })
 })
 
 describe('library.badge.states (card)', () => {
-  it('library.badge.states: cached and not stale shows "Đã lưu" only', () => {
+  it('library.badge.states: cached and not stale shows the "Đã lưu" icon on the cover corner', () => {
     renderCard({ card: model({ cached: true }) })
 
-    expect(within(article()).getByText('Đã lưu')).toBeInTheDocument()
+    const mark = within(article()).getByRole('img', { name: 'Đã lưu' })
+    expect(mark).toHaveClass('absolute', 'top-1.5', 'end-1.5')
+    expect(mark.querySelector('svg')).not.toBeNull()
     expect(within(article()).queryByText('Có bản mới')).toBeNull()
     expect(within(article()).queryByText('Chỉ còn trên máy')).toBeNull()
   })
@@ -188,14 +185,14 @@ describe('library.badge.states (card)', () => {
     renderCard({ card: model({ cached: true, stale: true }) })
 
     expect(within(article()).getByText('Có bản mới')).toBeInTheDocument()
-    expect(within(article()).queryByText('Đã lưu')).toBeNull()
+    expect(within(article()).queryByRole('img', { name: 'Đã lưu' })).toBeNull()
   })
 
   it('library.badge.states: local-only shows "Chỉ còn trên máy" and no "Đã lưu"', () => {
     renderCard({ card: model({ cached: true, localOnly: true }) })
 
     expect(within(article()).getByText('Chỉ còn trên máy')).toBeInTheDocument()
-    expect(within(article()).queryByText('Đã lưu')).toBeNull()
+    expect(within(article()).queryByRole('img', { name: 'Đã lưu' })).toBeNull()
   })
 })
 
@@ -211,5 +208,13 @@ describe('library.card.author', () => {
     renderCard()
 
     expect(article().querySelector('.text-ink-muted.truncate')).toBeNull()
+  })
+
+  it('library.card.align: title and author share a block that always reserves two title lines and the author line', () => {
+    renderCard()
+
+    const heading = within(article()).getByRole('heading', { name: 'Bản d' })
+    expect(heading).toHaveClass('line-clamp-2')
+    expect(heading.parentElement).toHaveClass('min-h-[calc(2lh+1.375rem)]')
   })
 })

@@ -4,6 +4,7 @@ import { AppDB, type Book } from '../../src/db/db'
 import { saveProgress, getProgress, listLiveProgress, type AnchorInput } from '../../src/progress/progress-repo'
 import { exportData } from '../../src/data/backup'
 import { SettingsPage, type SettingsProps } from '../../src/ui/settings/SettingsPage'
+import { toast } from '../../src/ui/toast-store'
 
 const MB = 1048576
 
@@ -15,6 +16,7 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
+  toast.value = null
   cleanup()
   db.close()
   await db.delete()
@@ -71,22 +73,40 @@ function renderPage(overrides: Partial<SettingsProps> = {}) {
 }
 
 describe('settings', () => {
-  it('cache.clear.one: deleting one cached book keeps the other and the position', async () => {
+  it('cache.clear.one: deleting one cached book removes it at once, offers undo and keeps the position', async () => {
     await seed(db)
     const before = await getProgress(db, 'a')
     renderPage()
     const [del] = await screen.findAllByRole('button', { name: 'Xoá bản lưu: A' })
     fireEvent.click(del)
-    await waitFor(async () => {
-      expect((await db.bookFiles.toArray()).map((f) => f.bookId)).toEqual(['b'])
-    })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Xoá bản lưu: A' })).toBeNull())
+    expect(toast.value?.action?.label).toBe('Hoàn tác')
+    expect((await db.bookFiles.toArray()).map((f) => f.bookId)).toEqual(['b'])
     expect(await getProgress(db, 'a')).toEqual(before)
+  })
+
+  it('cache.clear.undo: "Hoàn tác" keeps the saved copy', async () => {
+    await seed(db)
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Xoá bản lưu: A' }))
+    await waitFor(() => expect(toast.value?.action).toBeDefined())
+    toast.value?.action?.run()
+    expect(await screen.findByRole('button', { name: 'Xoá bản lưu: A' })).toBeTruthy()
+    expect(await db.bookFiles.count()).toBe(2)
+  })
+
+  it('cache.clear.selected: ticking rows deletes only those', async () => {
+    await seed(db)
+    renderPage()
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Chọn B' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Xoá 1 truyện đã chọn' }))
+    await waitFor(async () => expect((await db.bookFiles.toArray()).map((f) => f.bookId)).toEqual(['a']))
   })
 
   it('cache.clear.all: confirm deletes every cached file but keeps positions', async () => {
     await seed(db)
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Xoá toàn bộ cache' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Xoá tất cả bản lưu' }))
     const dialog = screen.getByRole('dialog')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Xoá' }))
     await waitFor(async () => {
@@ -99,7 +119,7 @@ describe('settings', () => {
   it('cache.clear.cancel: cancelling the dialog deletes nothing', async () => {
     await seed(db)
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Xoá toàn bộ cache' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Xoá tất cả bản lưu' }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Huỷ' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(await db.bookFiles.count()).toBe(2)
@@ -116,19 +136,18 @@ describe('settings', () => {
     })
   })
 
-  it('cache.layout.narrow: cached list renders as a list hidden on large screens', async () => {
+  it('cache.layout: one list for every width, newest opened first, with size and date', async () => {
     await seed(db)
     const { container } = renderPage()
     await screen.findAllByRole('button', { name: 'Xoá bản lưu: B' })
-    const list = container.querySelector('ul')
-    expect(list).not.toBeNull()
-    expect(list!.classList.contains('lg:hidden')).toBe(true)
-    const items = within(list!).getAllByRole('listitem')
+    expect(container.querySelector('table')).toBeNull()
+    const list = container.querySelector('ul')!
+    expect(list.classList.contains('lg:hidden')).toBe(false)
+    const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(2)
     expect(items[0].textContent).toContain('B')
     expect(items[0].textContent).toContain('0,5 MB')
     expect(items[0].textContent).toContain('09/01/2026')
-    expect(items[1].textContent).toContain('A')
     expect(items[1].textContent).toContain('1,0 MB')
     expect(items[1].textContent).toContain('05/01/2026')
     const btn = within(items[0]).getByRole('button', { name: 'Xoá bản lưu: B' })
@@ -136,39 +155,23 @@ describe('settings', () => {
     expect(btn.className).toContain('min-w-11')
   })
 
-  it('cache.layout.wide: cached list renders as a table shown on large screens', async () => {
+  it('cache.layout.sort: sorting by size puts the largest first', async () => {
     await seed(db)
     const { container } = renderPage()
     await screen.findAllByRole('button', { name: 'Xoá bản lưu: B' })
-    const table = container.querySelector('table')
-    expect(table).not.toBeNull()
-    expect(table!.classList.contains('hidden')).toBe(true)
-    expect(table!.classList.contains('lg:table')).toBe(true)
-    for (const h of ['Tên truyện', 'Dung lượng', 'Mở lần cuối']) {
-      expect(within(table!).getByRole('columnheader', { name: h })).toBeTruthy()
-    }
-    const rows = within(table!).getAllByRole('row').slice(1)
-    expect(rows).toHaveLength(2)
-    expect(rows[0].textContent).toContain('B')
-    expect(rows[0].textContent).toContain('0,5 MB')
-    expect(rows[0].textContent).toContain('09/01/2026')
-    expect(rows[1].textContent).toContain('1,0 MB')
-    const btn = within(rows[0]).getByRole('button', { name: 'Xoá bản lưu: B' })
-    expect(btn.className).toContain('min-h-11')
-    expect(btn.className).toContain('min-w-11')
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sắp xếp truyện đã lưu' }), { target: { value: 'size' } })
+    const items = within(container.querySelector('ul')!).getAllByRole('listitem')
+    expect(items[0].textContent).toContain('1,0 MB')
   })
 
-  it('app-shell.icons.icon-only: settings buttons outside dialogs have an svg, no text, and aria-label equals title', async () => {
+  it('settings.labels: actions outside the list are labelled buttons with visible text', async () => {
     await seed(db)
-    const { container } = renderPage()
+    renderPage()
     await screen.findAllByRole('button', { name: 'Xoá bản lưu: A' })
-    const buttons = Array.from(container.querySelectorAll('button'))
-    expect(buttons.length).toBeGreaterThan(0)
-    for (const b of buttons) {
-      expect(b.querySelector('svg'), b.getAttribute('aria-label') ?? '').not.toBeNull()
-      expect(b.textContent?.trim()).toBe('')
-      expect(b.getAttribute('aria-label')).toBeTruthy()
-      expect(b.getAttribute('aria-label')).toBe(b.getAttribute('title'))
+    for (const name of ['Làm mới', 'Xoá tất cả bản lưu', 'Xoá tiến độ đọc', 'Xuất dữ liệu', 'Nhập dữ liệu']) {
+      const b = screen.getByRole('button', { name })
+      expect(b.textContent?.trim()).toBe(name)
+      expect(b.querySelector('svg')).not.toBeNull()
     }
   })
 

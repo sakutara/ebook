@@ -4,7 +4,7 @@ export interface ConnectPanelProps {
   store?: DeployerStore
 }
 
-const FIELD = 'min-h-11 rounded-lg border border-ink-muted/40 bg-surface px-3 text-fluid-base text-ink'
+const FIELD = 'field text-fluid-base'
 
 /** Worker URL, admin token and "Nhớ trên máy này"; connects through `store.connect()`. */
 export function ConnectPanel({ store = defaultStore }: ConnectPanelProps) {
@@ -17,8 +17,8 @@ export function ConnectPanel({ store = defaultStore }: ConnectPanelProps) {
   }
 
   return (
-    <section aria-labelledby="connect-heading" class="rounded-xl bg-surface-2 p-4">
-      <h2 id="connect-heading" class="text-fluid-lg font-semibold">
+    <section aria-labelledby="connect-heading" class="card h-fit p-4 sm:p-5 lg:sticky lg:top-20">
+      <h2 id="connect-heading" class="font-serif text-fluid-lg font-semibold">
         Kết nối
       </h2>
       <form
@@ -53,7 +53,7 @@ export function ConnectPanel({ store = defaultStore }: ConnectPanelProps) {
           <input
             id="connect-remember"
             type="checkbox"
-            class="size-5"
+            class="size-5 accent-accent"
             checked={conn.remember}
             onChange={(e) => setConn({ remember: e.currentTarget.checked })}
           />
@@ -62,16 +62,16 @@ export function ConnectPanel({ store = defaultStore }: ConnectPanelProps) {
         <button
           type="submit"
           disabled={checking}
-          class="min-h-11 rounded-xl bg-accent px-4 text-fluid-base font-medium text-surface transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          class="min-h-11 cursor-pointer rounded-full bg-accent px-4 text-fluid-base font-medium text-on-accent shadow-sm transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Kết nối
         </button>
       </form>
       <div class="mt-3 text-fluid-sm">
         {checking && <p class="text-ink-muted">Đang kiểm tra…</p>}
-        {conn.state === 'ok' && <p class="text-ink">{`Đã kết nối · ${count} truyện`}</p>}
+        {conn.state === 'ok' && <p class="flex items-center gap-2 font-medium text-ink"><span aria-hidden="true" class="size-2 rounded-full bg-accent" />{`Đã kết nối · ${count} truyện`}</p>}
         {conn.state === 'error' && (
-          <p role="alert" class="text-red-600 dark:text-red-400">
+          <p role="alert" class="rounded-lg bg-danger-soft px-3 py-2 text-danger">
             {conn.error}
           </p>
         )}

@@ -15,12 +15,12 @@ export function ProgressBar({ percent, label = 'Đang tải truyện' }: Progres
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent ?? undefined}
-        class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2"
+        class="h-2 flex-1 overflow-hidden rounded-full bg-line"
       >
         {known ? (
-          <div class="h-full bg-accent transition-[width]" style={{ width: `${percent}%` }} />
+          <div class="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${percent}%` }} />
         ) : (
-          <div class="h-full w-2/5 bg-accent animate-[progress-indeterminate_1.2s_ease-in-out_infinite] motion-reduce:animate-none" />
+          <div class="h-full w-2/5 rounded-full bg-accent animate-[progress-indeterminate_1.2s_ease-in-out_infinite] motion-reduce:animate-none" />
         )}
       </div>
       <span class="text-fluid-sm tabular-nums text-ink-muted">

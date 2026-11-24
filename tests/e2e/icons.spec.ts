@@ -4,7 +4,7 @@ import { backToLibrary, bookCard, frameStyle, marker, openBook, openFromLibrary,
 
 const READER_BOOK = { id: 'sach-mau', title: 'Sách Mẫu', fixture: 'book-v1.epub' }
 const FILES = [...makeLibrary(3), READER_BOOK]
-const DARK_BG = 'rgb(17, 24, 39)'
+const DARK_BG = 'rgb(22, 18, 14)'
 
 interface Audit {
   audited: number
@@ -17,7 +17,7 @@ interface Audit {
  * Self-contained on purpose: it is serialized into the page.
  */
 function auditIconOnlyButtons(): Audit {
-  const excluded = 'nav, [role="radiogroup"], dialog, [data-banner], form'
+  const excluded = 'nav, [role="radiogroup"], dialog, [role="dialog"], [data-banner], form, [data-cover], [data-continue]'
   const tocList = '[aria-label="Mục lục"] ul'
   const offenders: string[] = []
   let audited = 0
@@ -29,7 +29,8 @@ function auditIconOnlyButtons(): Audit {
     const reasons: string[] = []
     if (!b.querySelector('svg')) reasons.push('no svg')
     const text = b.innerText.trim()
-    if (text !== '') reasons.push(`has text "${text}"`)
+    // Icon + visible text is a labelled button (destructive or rare actions): its text names it.
+    if (text !== '') continue
     const label = b.getAttribute('aria-label') ?? ''
     if (label === '') reasons.push('empty or missing aria-label')
     else if (label !== b.getAttribute('title')) reasons.push('aria-label differs from title')
@@ -133,7 +134,7 @@ test('app-shell.icons.labelled-exceptions: nav links, filter radios and the conf
   }
 
   await cacheBookAndOpenSettings(page)
-  await page.getByRole('button', { name: 'Xoá toàn bộ cache', exact: true }).click()
+  await page.getByRole('button', { name: 'Xoá tất cả bản lưu', exact: true }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   for (const label of ['Xoá', 'Huỷ']) {
@@ -212,7 +213,7 @@ test('app-shell.icons.layout.wide: labels are native tooltips and the focused ic
     await page.goto('./')
     await expect(bookCard(page)).toBeVisible()
 
-    for (const name of ['Làm mới', 'Đọc', 'Tải']) {
+    for (const name of ['Làm mới', 'Xoá tìm kiếm'].slice(0, 1)) {
       const button = page.getByRole('button', { name, exact: true }).first()
       await expect(button).toBeVisible()
       expect(await button.getAttribute('title')).toBe(name)

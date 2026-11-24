@@ -39,14 +39,14 @@ export function UploadBar({ store = defaultStore }: UploadBarProps) {
   const overall = up.total > 0 ? Math.floor((up.done / up.total) * 100) : 0
 
   return (
-    <div class="sticky bottom-0 z-10 grid gap-2 border-t border-ink-muted/20 bg-surface py-3">
+    <div class="sticky bottom-0 z-10 grid gap-2 rounded-t-2xl border-t border-line bg-surface/95 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
       {uploadError !== null && (
-        <p role="alert" class="text-fluid-sm font-medium text-red-600 dark:text-red-400">
+        <p role="alert" class="rounded-lg bg-danger-soft px-3 py-2 text-fluid-sm font-medium text-danger">
           {uploadError}
         </p>
       )}
       {!online && uploadError === null && (
-        <p class="text-fluid-sm font-medium text-red-600 dark:text-red-400">Cần kết nối mạng để tải lên</p>
+        <p class="text-fluid-sm font-medium text-danger">Cần kết nối mạng để tải lên</p>
       )}
       {up.running && <ProgressBar percent={overall} label="Tiến độ chung" />}
       <div class="flex flex-wrap items-center gap-2">

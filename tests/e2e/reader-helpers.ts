@@ -10,6 +10,12 @@ export const TITLE = 'Sách Mẫu'
 export async function waitForReady(page: Page): Promise<void> {
   await expect(page.locator('[role="status"]:not([aria-live])')).toHaveCount(0)
   await expect.poll(() => marker(page)).not.toBeNull()
+  // First book on this device: a tap-zone hint covers the page until it is tapped.
+  const hint = page.getByRole('button', { name: 'Đã hiểu cách lật trang' })
+  if (await hint.isVisible()) await hint.click()
+  // The controls show for a moment when the book opens; start every test with them hidden.
+  if (await chromeVisible(page)) await toggleChrome(page)
+  await expect(page.getByRole('slider', { name: 'Vị trí trong truyện' })).toHaveCount(0)
 }
 
 /** Library: the card for a title (defaults to the first card named TITLE). */
@@ -23,10 +29,16 @@ export async function openFromLibrary(page: Page, card: Locator = bookCard(page)
   await openBook(page, card, bookId)
 }
 
-/** Taps "Đọc" on a library card that is already on screen, then waits for the reader to be ready. */
+/** Taps a library card's cover, then "Đọc" in the sheet that opens. */
+export async function tapRead(page: Page, card: Locator): Promise<void> {
+  await card.locator('[data-cover]').click()
+  await page.getByRole('dialog').getByRole('button', { name: /^Đọc/ }).click()
+}
+
+/** Opens a library card that is already on screen through its sheet, then waits for the reader to be ready. */
 export async function openBook(page: Page, card: Locator = bookCard(page), bookId = BOOK_ID): Promise<void> {
   await expect(card).toBeVisible()
-  await card.getByRole('button', { name: 'Đọc', exact: true }).click()
+  await tapRead(page, card)
   await expect(page).toHaveURL(new RegExp(`#/read/${bookId}$`))
   await waitForReady(page)
 }
@@ -42,8 +54,9 @@ export function backButton(page: Page) {
   return page.getByRole('button', { name: 'Về thư viện' })
 }
 
+/** The reader controls are up when the position slider in the bottom bar is shown. */
 export async function chromeVisible(page: Page): Promise<boolean> {
-  return backButton(page).isVisible()
+  return page.getByRole('slider', { name: 'Vị trí trong truyện' }).isVisible()
 }
 
 export async function toggleChrome(page: Page): Promise<void> {
@@ -53,7 +66,7 @@ export async function toggleChrome(page: Page): Promise<void> {
 export async function showChrome(page: Page): Promise<void> {
   if (!(await chromeVisible(page))) {
     await toggleChrome(page)
-    await expect(backButton(page)).toBeVisible()
+    await expect(page.getByRole('slider', { name: 'Vị trí trong truyện' })).toBeVisible()
   }
 }
 
@@ -135,5 +148,5 @@ export async function pressNext(page: Page): Promise<void> {
 export async function backToLibrary(page: Page): Promise<void> {
   await showChrome(page)
   await backButton(page).click()
-  await expect(page).toHaveURL(/#\/$/)
+  await expect(page).toHaveURL(/\/(#\/)?$/)
 }

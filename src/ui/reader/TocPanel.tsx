@@ -23,7 +23,7 @@ function TocList(p: { items: TocEntry[]; onPick: (href: string) => void; disable
         <li key={`${item.href}|${item.label}`}>
           <button
             type="button"
-            class="flex min-h-11 w-full items-center rounded-lg px-2 text-start text-fluid-sm hover:bg-surface-2"
+            class="flex min-h-11 w-full items-center rounded-lg px-2 text-start text-fluid-sm transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"
             disabled={p.disabled}
             onClick={(e) => {
               // Keep focus off the entry so the reader's arrow keys work straight after a pick.
@@ -57,7 +57,7 @@ export function TocPanel(p: TocPanelProps) {
   return (
     <div role="dialog" aria-label="Mục lục" class="fixed inset-0 z-30 flex flex-col bg-surface text-ink">
       <div class="flex items-center justify-between gap-2 px-gutter py-2">
-        <h2 class="text-fluid-lg font-semibold">Mục lục</h2>
+        <h2 class="font-serif text-fluid-lg font-semibold">Mục lục</h2>
         <IconButton icon="close" label="Đóng" onClick={() => p.onClose?.()} />
       </div>
       <div class="flex-1 overflow-y-auto px-gutter pb-gutter">

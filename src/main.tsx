@@ -12,7 +12,7 @@ import { getServices } from './services'
 import { ReaderPage } from './ui/reader/ReaderPage'
 import { RequestPage } from './ui/request/RequestPage'
 import { showToast } from './ui/toast-store'
-import { navigate } from './router'
+import { goBack } from './router'
 import { LibraryPage } from './ui/library/LibraryPage'
 import { SettingsPage } from './ui/settings/SettingsPage'
 
@@ -39,7 +39,7 @@ render(
           db={services.db}
           cacheDeps={services.cacheDeps}
           onNotice={showToast}
-          onBack={() => navigate('#/')}
+          onBack={() => goBack('#/')}
         />
       ),
       request: () => (

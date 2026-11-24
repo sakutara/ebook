@@ -178,6 +178,14 @@ function iconMarkup(name: Parameters<typeof Icon>[0]['name']): string {
 
 const card = (title: string) => screen.getByRole('article', { name: title })
 
+/** Taps the book's cover and returns the named button in the action sheet that opens. */
+function sheetButton(title: string, name: string | RegExp): HTMLElement {
+  fireEvent.click(within(card(title)).getByRole('button', { name: `Mở ${title}` }))
+  return within(screen.getByRole('dialog', { name: title })).getByRole('button', { name })
+}
+
+const cover = (title: string) => within(card(title)).getByRole('button', { name: `Mở ${title}` })
+
 describe('app-shell.config.missing', () => {
   it('app-shell.config.missing: shows the notice, makes no Drive request and shows the cached book', async () => {
     await seed([book('a', 'Sách A')], [file('a')])
@@ -337,7 +345,7 @@ describe('library.badge.states (page)', () => {
     )
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Bản d' })
-    await waitFor(() => expect(within(card('Bản a')).getByText('Đã lưu')).toBeInTheDocument())
+    await waitFor(() => expect(within(card('Bản a')).getByRole('img', { name: 'Đã lưu' })).toBeInTheDocument())
     expect(within(card('Bản b')).getByText('Có bản mới')).toBeInTheDocument()
     expect(within(card('Bản c')).getByText('Chỉ còn trên máy')).toBeInTheDocument()
     await waitFor(() => expect(within(card('Bản d')).getByText('43%')).toBeInTheDocument())
@@ -352,7 +360,7 @@ describe('library.badge.states (first render)', () => {
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Bản d' })
     // No waitFor: the grid must not render until every live query has delivered.
-    expect(within(card('Bản a')).getByText('Đã lưu')).toBeInTheDocument()
+    expect(within(card('Bản a')).getByRole('img', { name: 'Đã lưu' })).toBeInTheDocument()
     expect(within(card('Bản d')).getByText('43%')).toBeInTheDocument()
   })
 })
@@ -371,8 +379,8 @@ describe('library.download.cached', () => {
     })
 
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
-    await waitFor(() => expect(within(card('Sách a')).getByText('Đã lưu')).toBeInTheDocument())
-    fireEvent.click(within(card('Sách a')).getByRole('button', { name: 'Tải' }))
+    await waitFor(() => expect(within(card('Sách a')).getByRole('img', { name: 'Đã lưu' })).toBeInTheDocument())
+    fireEvent.click(sheetButton('Sách a', 'Tải tệp EPUB về máy'))
 
     await waitFor(() => expect(clicked).toHaveLength(1))
     expect(createObjectURL).toHaveBeenCalledTimes(1)
@@ -394,7 +402,7 @@ describe('library.download.remote', () => {
     render(<LibraryPage services={services} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
-    fireEvent.click(within(card('Bản d')).getByRole('button', { name: 'Tải' }))
+    fireEvent.click(sheetButton('Bản d', 'Tải tệp EPUB về máy'))
     await waitFor(() => expect(created).toHaveLength(1))
     expect(assign).not.toHaveBeenCalled()
     expect(await db.bookFiles.get('d')).toBeDefined()
@@ -410,7 +418,7 @@ describe('library.download.remote', () => {
     await screen.findByRole('article', { name: 'Bản d' })
 
     // Without a source the download is disabled (cloud-off), so a tap cannot start a fetch.
-    const off = within(card('Bản d')).getByRole('button', { name: 'Cần mạng để tải' })
+    const off = sheetButton('Bản d', 'Cần mạng để tải')
     expect(off).toBeDisabled()
     fireEvent.click(off)
     await new Promise((r) => setTimeout(r, 0))
@@ -426,7 +434,7 @@ describe('library.download.remote', () => {
     render(<LibraryPage services={servicesWith(source)} />)
     await screen.findByRole('article', { name: 'Bản d: tập 1' })
 
-    fireEvent.click(within(card('Bản d: tập 1')).getByRole('button', { name: 'Tải' }))
+    fireEvent.click(sheetButton('Bản d: tập 1', 'Tải tệp EPUB về máy'))
     await waitFor(() => expect(held).toHaveLength(1))
     expect(within(card('Bản d: tập 1')).getByRole('progressbar', { name: 'Đang tải truyện' })).toBeInTheDocument()
     expect(saved).toHaveLength(0)
@@ -445,7 +453,7 @@ describe('library.read.fetch-first', () => {
     render(<LibraryPage services={servicesWith(source)} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
-    fireEvent.click(within(card('Bản d')).getByRole('button', { name: 'Đọc' }))
+    fireEvent.click(sheetButton('Bản d', /^Đọc/))
     await waitFor(() => expect(held).toHaveLength(1))
     expect(within(card('Bản d')).getByRole('progressbar', { name: 'Đang tải truyện' })).toBeInTheDocument()
     expect(location.hash).not.toBe('#/read/d')
@@ -463,15 +471,15 @@ describe('library.progress.shown', () => {
     render(<LibraryPage services={servicesWith(source)} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
-    fireEvent.click(within(card('Bản d')).getByRole('button', { name: 'Đọc' }))
+    fireEvent.click(sheetButton('Bản d', /^Đọc/))
     await waitFor(() => expect(held).toHaveLength(1))
     act(() => held[0].progress(25))
 
     const bar = within(card('Bản d')).getByRole('progressbar', { name: 'Đang tải truyện' })
     expect(bar).toHaveAttribute('aria-valuenow', '25')
     expect(within(card('Bản d')).getByText('Đang tải 25%')).toBeInTheDocument()
-    expect(within(card('Bản d')).queryByRole('button', { name: 'Đọc' })).toBeNull()
-    expect(within(card('Bản d')).queryByRole('button', { name: 'Tải' })).toBeNull()
+    expect(cover('Bản d')).toBeDisabled()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('library.progress.shown: an unknown total shows an indeterminate bar with "Đang tải…"', async () => {
@@ -480,7 +488,7 @@ describe('library.progress.shown', () => {
     render(<LibraryPage services={servicesWith(source)} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
-    fireEvent.click(within(card('Bản d')).getByRole('button', { name: 'Tải' }))
+    fireEvent.click(sheetButton('Bản d', 'Tải tệp EPUB về máy'))
     await waitFor(() => expect(held).toHaveLength(1))
     act(() => held[0].progress(null))
 
@@ -497,13 +505,13 @@ describe('library.progress.cancel', () => {
     render(<LibraryPage services={servicesWith(source)} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
-    fireEvent.click(within(card('Bản d')).getByRole('button', { name: 'Đọc' }))
+    fireEvent.click(sheetButton('Bản d', /^Đọc/))
     await waitFor(() => expect(held).toHaveLength(1))
     const cancel = within(card('Bản d')).getByRole('button', { name: 'Huỷ tải' })
     fireEvent.click(cancel)
 
-    await waitFor(() => expect(within(card('Bản d')).getByRole('button', { name: 'Đọc' })).toBeInTheDocument())
-    expect(within(card('Bản d')).getByRole('button', { name: 'Tải' })).toBeInTheDocument()
+    await waitFor(() => expect(cover('Bản d')).toBeEnabled())
+    expect(within(card('Bản d')).queryByRole('progressbar', { name: 'Đang tải truyện' })).toBeNull()
     expect(held[0].signal?.aborted).toBe(true)
     expect(await db.bookFiles.get('d')).toBeUndefined()
     expect(location.hash).not.toBe('#/read/d')
@@ -518,12 +526,12 @@ describe('library.progress.error', () => {
     render(<LibraryPage services={servicesWith(source)} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
-    fireEvent.click(within(card('Bản d')).getByRole('button', { name: 'Tải' }))
+    fireEvent.click(sheetButton('Bản d', 'Tải tệp EPUB về máy'))
     await waitFor(() => expect(held).toHaveLength(1))
     act(() => held[0].reject(new TypeError('network down')))
 
     await waitFor(() => expect(toast.value?.text).toBe('Không tải được truyện, thử lại sau'))
-    expect(within(card('Bản d')).getByRole('button', { name: 'Tải' })).toBeInTheDocument()
+    expect(cover('Bản d')).toBeEnabled()
     expect(await db.bookFiles.get('d')).toBeUndefined()
   })
 })
@@ -561,7 +569,7 @@ describe('library.filter.author', () => {
     await screen.findByRole('article', { name: 'Truyện 1' })
 
     const select = screen.getByRole('combobox', { name: 'Tác giả' })
-    expect(within(select).getByRole('option', { name: 'Tất cả tác giả' })).toBeInTheDocument()
+    expect(within(select).getByRole('option', { name: 'Mọi tác giả' })).toBeInTheDocument()
     expect(within(select).getByRole('option', { name: 'Nhĩ Căn (2)' })).toBeInTheDocument()
     fireEvent.change(select, { target: { value: normalize('Nhĩ Căn') } })
 
@@ -670,34 +678,80 @@ describe('library.grid.only', () => {
 })
 
 describe('library.layout (classes only)', () => {
-  it('library.layout.narrow: genre chips scroll inside their own row, the select is full width and the grid has 2 columns', async () => {
+  it('library.layout.narrow: genre chips scroll inside their own row, the author select shares the filter row and the grid has 2 columns', async () => {
     await seed([book('1', 'Truyện 1', { genres: ['Tiên hiệp'], author: 'A', normAuthor: 'a' })])
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Truyện 1' })
 
     const group = screen.getByRole('radiogroup', { name: 'Thể loại' })
-    expect(group).toHaveClass('-mx-4', 'overflow-x-auto', 'flex', 'px-4')
-    expect(screen.getByRole('combobox', { name: 'Tác giả' })).toHaveClass('w-full', 'min-h-11')
+    expect(group).toHaveClass('-mx-gutter', 'overflow-x-auto', 'flex', 'px-gutter')
+    expect(group).toHaveClass('md:flex-wrap', 'md:overflow-visible', 'md:mx-0', 'md:px-0')
+    const select = screen.getByRole('combobox', { name: 'Tác giả' })
+    expect(select).toHaveClass('w-full', 'min-h-11')
+    // Saved filter and author select sit on one row.
+    const filterRow = screen.getByRole('radiogroup', { name: 'Bộ lọc' }).parentElement!
+    expect(filterRow.contains(select)).toBe(true)
     expect(card('Truyện 1').parentElement).toHaveClass('grid', 'grid-cols-2')
   })
 
-  it('library.layout.wide: status row sits above; genre chips and author select share the next row from md', async () => {
-    await seed([book('1', 'Truyện 1', { genres: ['Tiên hiệp'], author: 'A', normAuthor: 'a' })])
+  it('library.filter.counts: a genre count is a separate badge inside its chip', async () => {
+    await seed([book('1', 'Truyện 1', { genres: ['Tiên hiệp'] }), book('2', 'Truyện 2', { genres: ['Tiên hiệp'] })])
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Truyện 1' })
 
-    const group = screen.getByRole('radiogroup', { name: 'Thể loại' })
-    const row = group.parentElement!
-    const toolbar = row.parentElement!
-    expect(toolbar).toHaveClass('flex', 'flex-col', 'gap-3')
-    expect(toolbar).not.toHaveClass('lg:flex-row', 'lg:flex-wrap')
-    expect(row).toHaveClass('flex', 'flex-col', 'gap-3', 'md:flex-row', 'md:items-start')
-    expect(screen.getByRole('combobox', { name: 'Tác giả' }).parentElement).toBe(row)
-    expect(screen.getByRole('radiogroup', { name: 'Bộ lọc' }).parentElement!.parentElement).toBe(toolbar)
-    expect(row.parentElement).toBe(toolbar)
-    expect(group).toHaveClass('md:min-w-0', 'md:flex-1', 'md:flex-wrap', 'md:overflow-visible', 'md:mx-0', 'md:px-0')
-    expect(screen.getByRole('combobox', { name: 'Tác giả' })).toHaveClass('md:w-56', 'md:shrink-0', 'w-full')
-    expect(screen.getByRole('combobox', { name: 'Tác giả' })).not.toHaveClass('lg:w-auto')
+    const chip = screen.getByRole('radio', { name: 'Tiên hiệp 2' })
+    const badge = Array.from(chip.querySelectorAll('span')).find((el) => el.textContent === '2')
+    expect(badge).toBeDefined()
+    expect(badge).toHaveClass('rounded-full', 'tabular-nums')
+  })
+})
+
+describe('library.sheet', () => {
+  it('library.sheet: tapping a cover opens a sheet with Đọc and Tải; it does not open the book', async () => {
+    await seed([book('a', 'Bản a')], [file('a')])
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    await screen.findByRole('article', { name: 'Bản a' })
+
+    fireEvent.click(cover('Bản a'))
+    expect(location.hash).not.toBe('#/read/a')
+    const dialog = screen.getByRole('dialog', { name: 'Bản a' })
+    expect(within(dialog).getByRole('button', { name: 'Đọc truyện' })).toBeEnabled()
+    expect(within(dialog).getByRole('button', { name: 'Tải tệp EPUB về máy' })).toBeEnabled()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Đóng' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('library.sheet: a saved book can have its copy removed, with undo', async () => {
+    await seed([book('a', 'Bản a')], [file('a')])
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    await waitFor(() => expect(within(card('Bản a')).getByRole('img', { name: 'Đã lưu' })).toBeInTheDocument())
+
+    fireEvent.click(sheetButton('Bản a', 'Xoá bản lưu trên máy'))
+    await waitFor(() => expect(within(card('Bản a')).queryByRole('img', { name: 'Đã lưu' })).toBeNull())
+    expect(await db.bookFiles.get('a')).toBeUndefined()
+    expect(toast.value?.action?.label).toBe('Hoàn tác')
+
+    act(() => toast.value?.action?.run())
+    await waitFor(() => expect(within(card('Bản a')).getByRole('img', { name: 'Đã lưu' })).toBeInTheDocument())
+    expect(await db.bookFiles.get('a')).toBeDefined()
+  })
+})
+
+describe('library.continue', () => {
+  it('library.continue: started books show in "Đọc tiếp", newest first; tapping one opens the reader', async () => {
+    await seed(
+      [book('a', 'Bản a'), book('b', 'Bản b'), book('c', 'Bản c')],
+      [file('a'), file('b')],
+      [{ ...progressRow('a', 0.2), updatedAt: 10 }, { ...progressRow('b', 0.5), updatedAt: 20 }, progressRow('c', 1)],
+    )
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    const region = await screen.findByRole('region', { name: 'Đọc tiếp' })
+    const items = within(region).getAllByRole('button')
+    expect(items.map((b) => b.getAttribute('aria-label'))).toEqual(['Đọc tiếp Bản b', 'Đọc tiếp Bản a'])
+
+    fireEvent.click(items[0])
+    expect(location.hash).toBe('#/read/b')
   })
 })
 
@@ -707,14 +761,15 @@ describe('library.download.offline', () => {
     syncStatus.value = { ...syncStatus.value, online: false }
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Bản d' })
-    await waitFor(() => expect(within(card('Bản a')).getByText('Đã lưu')).toBeInTheDocument())
+    await waitFor(() => expect(within(card('Bản a')).getByRole('img', { name: 'Đã lưu' })).toBeInTheDocument())
 
-    const off = within(card('Bản d')).getByRole('button', { name: 'Cần mạng để tải' })
+    const off = sheetButton('Bản d', 'Cần mạng để tải')
     expect(off).toBeDisabled()
     expect(off.querySelector('[aria-hidden="true"]')?.innerHTML).toBe(iconMarkup('cloud-off'))
     expect(card('Bản d')).toHaveClass('opacity-60')
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Đóng' }))
 
-    expect(within(card('Bản a')).getByRole('button', { name: 'Tải' })).toBeEnabled()
+    expect(sheetButton('Bản a', 'Tải tệp EPUB về máy')).toBeEnabled()
     expect(card('Bản a')).not.toHaveClass('opacity-60')
   })
 })
@@ -725,7 +780,7 @@ describe('library.read.navigate', () => {
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Bản a' })
 
-    fireEvent.click(within(card('Bản a')).getByRole('button', { name: 'Đọc' }))
+    fireEvent.click(sheetButton('Bản a', /^Đọc/))
     expect(location.hash).toBe('#/read/a')
   })
 })
@@ -737,7 +792,7 @@ describe('library.read.offline-disabled', () => {
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Bản d' })
 
-    const read = within(card('Bản d')).getByRole('button', { name: 'Cần mạng để đọc' })
+    const read = sheetButton('Bản d', 'Cần mạng để đọc')
     expect(read).toBeDisabled()
     expect(read.querySelector('[aria-hidden="true"]')?.innerHTML).toBe(iconMarkup('cloud-off'))
   })
@@ -751,7 +806,7 @@ describe('app-shell.icons.icon-only (library part)', () => {
     await screen.findByRole('article', { name: 'Bản a' })
 
     const buttons = Array.from(document.querySelectorAll('button')).filter(
-      (b) => !b.closest('nav, [role="radiogroup"], [role="radio"], [role="dialog"]'),
+      (b) => !b.closest('nav, [role="radiogroup"], [role="radio"], [role="dialog"]') && !b.hasAttribute('data-cover'),
     )
     expect(buttons.length).toBeGreaterThan(0)
     for (const b of buttons) {

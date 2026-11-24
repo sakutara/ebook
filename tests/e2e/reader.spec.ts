@@ -26,7 +26,7 @@ test.describe('reader', () => {
 
     await showChrome(page)
     await page.getByRole('button', { name: 'Về thư viện' }).click()
-    await expect(page).toHaveURL(/#\/$/)
+    await expect(page).toHaveURL(/\/(#\/)?$/)
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).toMatchObject({ chapter: 1 })
     expect(r2.count(epubPath(BOOK_ID))).toBe(1)
@@ -99,12 +99,15 @@ test.describe('reader', () => {
     await mockR2(context, { books: FILES })
     await openFromLibrary(page)
     await expect.poll(() => marker(page)).not.toBeNull()
-    await expect(backButton(page)).toBeHidden()
+    const slider = page.getByRole('slider', { name: 'Vị trí trong truyện' })
+    await expect(slider).toBeHidden()
+    // The way back stays on screen (faint) while the controls are hidden.
+    await expect(backButton(page)).toBeVisible()
 
     await tapTextArea(page, 0.5)
-    await expect(backButton(page)).toBeVisible()
+    await expect(slider).toBeVisible()
     await tapTextArea(page, 0.5)
-    await expect(backButton(page)).toBeHidden()
+    await expect(slider).toBeHidden()
   })
 
   test('reader.toc.go: choosing "Chương 5" in the table of contents opens chapter 5', async ({ page, context }) => {
@@ -181,7 +184,7 @@ test.describe('reader', () => {
     await sheet.getByRole('button', { name: 'Chữ lớn hơn', exact: true }).click()
     await sheet.getByRole('button', { name: 'Nền tối', exact: true }).click()
 
-    await expect.poll(async () => (await frameStyle(page)).bg).toBe('rgb(17, 24, 39)')
+    await expect.poll(async () => (await frameStyle(page)).bg).toBe('rgb(22, 18, 14)')
     expect((await frameStyle(page)).fontSize).toBeGreaterThanOrEqual(defaultSize * 1.15)
     expect(await chapterOf(page)).toBe(startChapter)
   })

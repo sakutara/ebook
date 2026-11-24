@@ -54,7 +54,7 @@ export function SearchBar() {
   }
 
   return (
-    <div role="search" class="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-surface-2 pl-3">
+    <div role="search" class="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-surface-2 pl-4 transition focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/20">
       <Icon name="search" class="text-ink-muted" />
       <input
         type="search"

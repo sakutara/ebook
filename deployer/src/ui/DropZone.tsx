@@ -13,8 +13,8 @@ export function DropZone({ store = defaultStore }: DropZoneProps) {
   return (
     <div class="grid gap-2">
       <label
-        class={`flex min-h-24 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed p-4 text-center text-fluid-base transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent ${
-          over ? 'border-accent bg-surface-2' : 'border-ink-muted/50'
+        class={`flex min-h-32 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed p-6 text-center text-fluid-base transition-colors duration-150 hover:border-accent hover:bg-surface-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent ${
+          over ? 'border-accent bg-surface-2' : 'border-line'
         }`}
         onDragOver={(e) => {
           e.preventDefault()
@@ -42,7 +42,8 @@ export function DropZone({ store = defaultStore }: DropZoneProps) {
             void store.addFiles(files)
           }}
         />
-        <span>Chọn hoặc kéo thả tệp EPUB vào đây</span>
+        <span class="font-serif text-fluid-lg font-semibold">Chọn hoặc kéo thả tệp EPUB vào đây</span>
+        <span class="text-fluid-sm text-ink-muted">Có thể chọn nhiều tệp cùng lúc</span>
       </label>
       {notice !== null && (
         <p role="status" class="text-fluid-sm text-ink-muted">

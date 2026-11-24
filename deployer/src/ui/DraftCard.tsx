@@ -10,9 +10,9 @@ export interface DraftCardProps {
   store?: DeployerStore
 }
 
-const FIELD = 'min-h-11 w-full rounded-lg border border-ink-muted/40 bg-surface px-3 text-fluid-base text-ink disabled:opacity-60'
-const PILL = 'inline-flex min-h-7 items-center rounded-full px-2 text-fluid-sm'
-const DANGER = 'text-red-600 dark:text-red-400'
+const FIELD = 'field text-fluid-base'
+const PILL = 'inline-flex min-h-7 items-center rounded-full border border-line px-2.5 text-xs font-semibold'
+const DANGER = 'text-danger'
 
 /** Object URL for a blob, revoked when the blob changes or the component unmounts. */
 function useObjectUrl(blob: Blob): string | null {
@@ -32,8 +32,8 @@ function useObjectUrl(blob: Blob): string | null {
 /** Status text for the pill. `done` wins over the catalog status; parse errors have no status. */
 function statusLabel(draft: Draft): { text: string; tone: string } {
   if (draft.state === 'parsing') return { text: 'Đang đọc tệp…', tone: 'bg-surface text-ink-muted' }
-  if (draft.state === 'done') return { text: 'Đã tải lên', tone: 'bg-accent text-surface' }
-  if (draft.state === 'error') return { text: 'Lỗi', tone: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' }
+  if (draft.state === 'done') return { text: 'Đã tải lên', tone: 'border-accent bg-accent text-on-accent' }
+  if (draft.state === 'error') return { text: 'Lỗi', tone: 'border-danger bg-danger-soft text-danger' }
   if (draft.status === 'new') return { text: 'Mới', tone: 'bg-surface text-ink' }
   if (draft.status === 'update') return { text: 'Cập nhật', tone: 'bg-surface text-ink' }
   return { text: 'Đã có', tone: 'bg-surface text-ink-muted' }
@@ -53,6 +53,7 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
   const catalog = store.catalog.value
   const coverUrl = useObjectUrl(draft.cover)
   const [otherGenre, setOtherGenre] = useState('')
+  const [editing, setEditing] = useState(false)
   /** Unique per card: ids must not repeat across the list. */
   const idPrefix = `draft-${draft.key}`
 
@@ -83,10 +84,10 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
   return (
     <article
       aria-label={draft.title || draft.file.name}
-      class="grid gap-3 rounded-xl bg-surface-2 p-3 text-ink sm:p-4"
+      class="card grid gap-3 p-3 text-ink sm:p-4"
     >
       <div class="flex items-start gap-3">
-        <div class="h-36 w-24 shrink-0 overflow-hidden rounded-lg bg-surface">
+        <div class="h-28 w-[4.75rem] shrink-0 overflow-hidden rounded-md bg-surface shadow-cover ring-1 ring-black/5">
           {coverUrl !== null && <img src={coverUrl} alt="" class="size-full object-cover" />}
         </div>
         <div class="grid min-w-0 flex-1 gap-2">
@@ -94,12 +95,14 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
             <span class={`${PILL} ${status.tone}`}>{status.text}</span>
             {draft.coverGenerated && <span class={`${PILL} bg-surface text-ink-muted`}>Bìa tự tạo</span>}
           </div>
-          <p class="truncate text-fluid-sm text-ink-muted">{draft.file.name}</p>
+          <p class="line-clamp-2 font-serif text-fluid-base font-semibold leading-snug">{draft.title || draft.file.name}</p>
+          {draft.author !== '' && <p class="-mt-1 truncate text-fluid-sm text-ink-muted">{draft.author}</p>}
+          <p class="truncate text-xs text-ink-muted">{`${draft.file.name}${draft.slug ? ` → ${draft.slug}/` : ''}`}</p>
           <div class="flex min-h-11 items-center gap-2 text-fluid-sm">
             <input
               id={`${idPrefix}-pick`}
               type="checkbox"
-              class="size-5"
+              class="size-5 accent-accent"
               checked={draft.selected}
               disabled={draft.state !== 'ready'}
               onChange={(e) => update({ selected: e.currentTarget.checked })}
@@ -110,7 +113,16 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
       </div>
 
       {showFields && (
-        <div class="grid gap-3">
+        <details
+          open={editing || slugProblem !== null || isUploadError(draft)}
+          onToggle={(e) => setEditing((e.currentTarget as HTMLDetailsElement).open)}
+          class="group rounded-xl border border-line bg-surface open:bg-transparent open:border-transparent"
+        >
+          <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3 text-fluid-sm font-medium text-ink hover:bg-surface-2 group-open:px-0 group-open:hover:bg-transparent [&::-webkit-details-marker]:hidden">
+            <span>{editable ? 'Sửa thông tin' : 'Thông tin'}</span>
+            <span class="text-ink-muted">{`${draft.genres.length > 0 ? draft.genres.join(', ') : 'Chưa có thể loại'}`}</span>
+          </summary>
+        <div class="grid gap-3 pt-2">
           <div class="grid gap-1 text-fluid-sm">
             <label for={`${idPrefix}-title`}>Tên truyện</label>
             <input
@@ -165,7 +177,7 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
                     aria-pressed={on}
                     disabled={!editable}
                     onClick={() => toggleGenre(name)}
-                    class="min-h-11 rounded-full border border-ink-muted/40 px-3 text-fluid-sm transition-colors aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-surface disabled:opacity-60"
+                    class="chip text-fluid-sm"
                   >
                     {name}
                   </button>
@@ -205,6 +217,7 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
             </div>
           </div>
         </div>
+        </details>
       )}
 
       {conflict !== null && <p class={`text-fluid-sm font-medium ${DANGER}`}>{`Sẽ ghi đè «${conflict}»`}</p>}
@@ -221,7 +234,7 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
       )}
 
       {draft.state !== 'uploading' && (
-        <div class="flex justify-end">
+        <div class="-mb-1 -mt-2 flex justify-end">
           <IconButton icon="close" label="Bỏ khỏi danh sách" onClick={() => store.removeDraft(draft.key)} />
         </div>
       )}
@@ -237,7 +250,33 @@ export interface DraftListProps {
 export function DraftList({ store = defaultStore }: DraftListProps) {
   const drafts = store.drafts.value
   if (drafts.length === 0) return null
+  const ready = drafts.filter((d) => d.state === 'ready')
+  const count = (st: Draft['status']) => ready.filter((d) => d.status === st).length
+  const parts = [
+    count('new') > 0 && `${count('new')} mới`,
+    count('update') > 0 && `${count('update')} cập nhật`,
+    ready.length - count('new') - count('update') > 0 && `${ready.length - count('new') - count('update')} đã có`,
+    drafts.filter((d) => d.state === 'error').length > 0 && `${drafts.filter((d) => d.state === 'error').length} lỗi`,
+    drafts.filter((d) => d.state === 'parsing').length > 0 && `${drafts.filter((d) => d.state === 'parsing').length} đang đọc`,
+  ].filter((x): x is string => typeof x === 'string')
+  const allOn = ready.length > 0 && ready.every((d) => d.selected)
   return (
+    <div class="grid gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-fluid-sm text-ink-muted">
+          <span class="font-semibold text-ink">{`${drafts.length} tệp`}</span>
+          {parts.length > 0 && ` · ${parts.join(' · ')}`}
+        </p>
+        {ready.length > 1 && (
+          <button
+            type="button"
+            onClick={() => ready.forEach((d) => store.updateDraft(d.key, { selected: !allOn }))}
+            class="inline-flex min-h-11 cursor-pointer items-center rounded-full px-3 text-fluid-sm font-medium text-accent hover:bg-surface-2"
+          >
+            {allOn ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+          </button>
+        )}
+      </div>
     <ul class="grid gap-4 lg:grid-cols-2">
       {drafts.map((draft) => (
         <li key={draft.key}>
@@ -245,5 +284,6 @@ export function DraftList({ store = defaultStore }: DraftListProps) {
         </li>
       ))}
     </ul>
+    </div>
   )
 }

@@ -32,6 +32,8 @@ export const ICON_NAMES = [
   'copy',
   'send',
   'request',
+  'sliders',
+  'saved',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
@@ -51,14 +53,14 @@ type Variant = 'plain' | 'primary' | 'danger'
 const VARIANT: Record<Variant, string> = {
   // No text colour here: the icon inherits from its container (body is text-ink; the reader sets its own).
   plain: 'hover:bg-surface-2',
-  primary: 'bg-accent text-surface hover:opacity-90',
-  danger: 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950',
+  primary: 'bg-accent text-on-accent shadow-sm hover:brightness-110',
+  danger: 'text-danger hover:bg-danger-soft',
 }
 
 const BASE =
-  'inline-flex min-h-11 items-center justify-center gap-2 transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40'
+  'inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 transition duration-150 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100'
 const ICON_BTN = 'min-w-11 rounded-full'
-const TEXT_BTN = 'px-4 rounded-xl'
+const TEXT_BTN = 'px-4 rounded-full'
 
 interface ButtonProps {
   icon: IconName
@@ -106,7 +108,7 @@ export function IconTextButton(p: IconTextButtonProps) {
       class={`${BASE} ${TEXT_BTN} ${VARIANT[p.variant ?? 'plain']} ${p.class ?? ''}`}
     >
       <Icon name={p.icon} />
-      <span class="text-fluid-sm">{p.label}</span>
+      <span class="text-fluid-sm font-medium">{p.label}</span>
     </button>
   )
 }

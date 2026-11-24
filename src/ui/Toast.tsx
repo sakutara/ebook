@@ -13,10 +13,22 @@ export function Toast({ raised = false }: { raised?: boolean }) {
     <div
       role="status"
       aria-live="polite"
-      class={`fixed inset-x-gutter ${offset} z-30 flex items-center justify-between gap-2 rounded-xl bg-ink p-3 text-surface lg:left-auto lg:w-96`}
+      class={`fixed inset-x-gutter ${offset} z-40 flex items-center justify-between gap-2 rounded-2xl bg-ink py-2 pe-2 ps-4 text-surface shadow-float lg:left-auto lg:w-96`}
     >
-      <span class="text-fluid-sm">{t.text}</span>
-      <IconButton icon="close" label="Đóng" onClick={() => (toast.value = null)} />
+      <span class="min-w-0 flex-1 text-fluid-sm">{t.text}</span>
+      {t.action && (
+        <button
+          type="button"
+          class="min-h-11 shrink-0 cursor-pointer rounded-full px-3 text-fluid-sm font-semibold text-accent-on-ink hover:bg-surface/10"
+          onClick={() => {
+            t.action?.run()
+            toast.value = null
+          }}
+        >
+          {t.action.label}
+        </button>
+      )}
+      <IconButton icon="close" label="Đóng" class="hover:bg-surface/10" onClick={() => (toast.value = null)} />
     </div>
   )
 }

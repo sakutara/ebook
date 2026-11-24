@@ -78,7 +78,7 @@ export function DonateDialog(p: DonateDialogProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="donate-dialog-title"
-        class="fixed inset-0 m-auto max-h-[90dvh] w-[min(92vw,26rem)] overflow-y-auto rounded-xl bg-surface p-4 text-ink shadow-xl"
+        class="fixed inset-0 m-auto max-h-[90dvh] w-[min(92vw,26rem)] overflow-y-auto rounded-2xl border border-line bg-surface p-5 text-ink shadow-float"
       >
         <div class="flex items-start justify-between gap-2">
           <h2 id="donate-dialog-title" class="text-fluid-lg font-semibold">
@@ -97,8 +97,8 @@ export function DonateDialog(p: DonateDialogProps) {
                 role="radio"
                 aria-checked={checked}
                 onClick={() => setChoice(c)}
-                class={`min-h-11 rounded-xl border px-2 text-fluid-sm ${
-                  checked ? 'border-accent bg-accent text-surface' : 'border-surface-2 bg-surface text-ink'
+                class={`min-h-11 rounded-xl border px-2 text-fluid-sm transition-colors ${
+                  checked ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface text-ink hover:border-ink-muted'
                 }`}
               >
                 {label}
@@ -117,7 +117,7 @@ export function DonateDialog(p: DonateDialogProps) {
               aria-label="Số tiền tuỳ chọn"
               value={custom}
               onInput={(e) => setCustom(formatInput(e.currentTarget.value))}
-              class="min-h-11 w-full rounded-xl border border-surface-2 bg-surface px-3 text-fluid-base text-ink"
+              class="field text-fluid-base"
             />
             {amount === null && (
               <p role="alert" class="mt-1 text-fluid-sm text-ink-muted">

@@ -23,7 +23,7 @@ interface Message {
 
 const NO_ACCENT = 'Tên truyện chưa có dấu — hãy gõ tiếng Việt có dấu'
 const INPUT =
-  'w-full min-h-11 rounded-xl bg-surface px-3 py-2 text-fluid-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+  'field py-2 text-fluid-base'
 
 export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
   const [title, setTitle] = useState('')
@@ -89,7 +89,7 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
           e.preventDefault()
           void onSubmit()
         }}
-        class="flex w-full flex-col gap-4 rounded-xl bg-surface-2 p-4"
+        class="card flex w-full flex-col gap-4 p-4 sm:p-5"
       >
         {formConfig === null && (
           <p role="status" class="text-fluid-sm">
@@ -175,7 +175,7 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
                 <p class="truncate text-fluid-base">{r.title}</p>
                 {r.author !== '' && <p class="text-fluid-sm text-ink/70">{r.author}</p>}
               </div>
-              <span class="shrink-0 rounded-full bg-surface px-3 py-1 text-fluid-sm">
+              <span class="shrink-0 rounded-full border border-line bg-surface px-3 py-1 text-fluid-sm">
                 {r.sentAt === null ? 'Chờ gửi' : 'Đã gửi'}
               </span>
             </li>
