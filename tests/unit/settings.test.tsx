@@ -67,9 +67,7 @@ async function seed(d: AppDB) {
 }
 
 function renderPage(overrides: Partial<SettingsProps> = {}) {
-  const onRefresh = vi.fn()
-  const utils = render(<SettingsPage db={db} config={null} onRefresh={onRefresh} {...overrides} />)
-  return { ...utils, onRefresh }
+  return render(<SettingsPage db={db} {...overrides} />)
 }
 
 describe('settings', () => {
@@ -168,17 +166,11 @@ describe('settings', () => {
     await seed(db)
     renderPage()
     await screen.findAllByRole('button', { name: 'Xoá bản lưu: A' })
-    for (const name of ['Làm mới', 'Xoá tất cả bản lưu', 'Xoá tiến độ đọc', 'Xuất dữ liệu', 'Nhập dữ liệu']) {
+    for (const name of ['Xoá tất cả bản lưu', 'Xoá tiến độ đọc', 'Xuất dữ liệu', 'Nhập dữ liệu']) {
       const b = screen.getByRole('button', { name })
       expect(b.textContent?.trim()).toBe(name)
       expect(b.querySelector('svg')).not.toBeNull()
     }
-  })
-
-  it('settings: refresh calls onRefresh', () => {
-    const { onRefresh } = renderPage()
-    fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }))
-    expect(onRefresh).toHaveBeenCalledTimes(1)
   })
 
   it('settings: import shows the imported count', async () => {
@@ -195,16 +187,9 @@ describe('settings', () => {
     })
   })
 
-  it('app-shell.config.settings: source section shows the worker host', () => {
-    renderPage({ config: { baseUrl: 'https://tu-truyen.example.workers.dev' } })
-    const section = screen.getByRole('region', { name: 'Máy chủ truyện' })
-    expect(within(section).getByText('tu-truyen.example.workers.dev')).toBeTruthy()
-    expect(screen.queryByText(/Google Drive/)).toBeNull()
-  })
-
-  it('app-shell.config.settings: source section says not configured when config is null', () => {
-    renderPage({ config: null })
-    const section = screen.getByRole('region', { name: 'Máy chủ truyện' })
-    expect(within(section).getByText('Chưa cấu hình')).toBeTruthy()
+  it('app-shell.config.settings: the page never shows the server address or a server section', () => {
+    const { container } = render(<SettingsPage db={db} />)
+    expect(screen.queryByRole('region', { name: 'Máy chủ truyện' })).toBeNull()
+    expect(container.textContent).not.toMatch(/workers\.dev|https?:\/\/|Máy chủ/)
   })
 })

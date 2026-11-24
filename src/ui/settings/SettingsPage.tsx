@@ -1,20 +1,15 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { liveQuery } from 'dexie'
-import { catalogStatus } from '../../catalog/catalog-sync'
 import { cacheStats, deleteAllCache } from '../../cache/book-cache'
 import { clearAllProgress } from '../../progress/progress-repo'
 import { exportData, importData } from '../../data/backup'
 import type { AppDB } from '../../db/db'
-import type { R2Config } from '../../config'
 import { Icon, IconButton, IconTextButton } from '../icons/Icon'
 import { removeSavedCopies } from '../cache-actions'
 import { useBackClose } from '../useBackClose'
 
 export interface SettingsProps {
   db: AppDB
-  /** Worker config; `null` when `VITE_R2_BASE_URL` is not set. */
-  config: R2Config | null
-  onRefresh: () => void
   /** Optional replacement for the in-page confirm dialog. When given, destructive actions await it. */
   confirm?: (message: string) => Promise<boolean>
 }
@@ -48,11 +43,6 @@ function formatDate(ms: number): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
 }
 
-function formatDateTime(ms: number): string {
-  const d = new Date(ms)
-  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
-}
-
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
@@ -83,24 +73,6 @@ async function listCached(db: AppDB): Promise<CachedRow[]> {
       lastOpenedAt: f.lastOpenedAt,
     }))
     .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
-}
-
-function sourceStatusText(): string {
-  const s = catalogStatus.value
-  if (s.state === 'syncing') return 'Đang cập nhật…'
-  if (s.state === 'error') return s.error ?? 'Cập nhật thất bại'
-  if (s.lastSyncAt !== undefined) return `Cập nhật lúc ${formatDateTime(s.lastSyncAt)}`
-  return 'Chưa cập nhật'
-}
-
-/** Host of the book worker, or the not-configured text. */
-function sourceHost(config: R2Config | null | undefined): string {
-  if (!config) return 'Chưa cấu hình'
-  try {
-    return new URL(config.baseUrl).host
-  } catch {
-    return 'Chưa cấu hình'
-  }
 }
 
 interface PendingConfirm {
@@ -164,7 +136,7 @@ const SECTION = 'card flex flex-col gap-3 p-4 sm:p-5'
 const HINT = 'text-fluid-sm text-ink-muted'
 
 export function SettingsPage(p: SettingsProps) {
-  const { db, onRefresh } = p
+  const { db } = p
   const cached = useLive(db, listCached, [])
   const stats = useLive(db, cacheStats, EMPTY_STATS)
   const fractions = useLive(db, progressById, new Map<string, number>())
@@ -291,19 +263,6 @@ export function SettingsPage(p: SettingsProps) {
 
   return (
     <div class="mx-auto flex w-full max-w-3xl flex-col gap-5 py-4">
-      <section aria-labelledby="settings-source" class={SECTION}>
-        <h2 id="settings-source" class="text-fluid-lg font-semibold">
-          Máy chủ truyện
-        </h2>
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="truncate text-fluid-base font-medium">{sourceHost(p.config)}</p>
-            <p class={HINT}>{sourceStatusText()}</p>
-          </div>
-          <IconTextButton icon="refresh" label="Làm mới" onClick={() => onRefresh()} />
-        </div>
-      </section>
-
       <section aria-labelledby="settings-storage" class={SECTION}>
         <div class="flex items-baseline justify-between gap-2">
           <h2 id="settings-storage" class="text-fluid-lg font-semibold">
