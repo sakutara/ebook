@@ -97,3 +97,27 @@ export function listRequests(db: AppDB): Promise<StoryRequest[]> {
 export async function markSent(db: AppDB, id: string, at = now()): Promise<void> {
   await db.storyRequests.update(id, { sentAt: at, updatedAt: at })
 }
+
+/**
+ * Remove a sent request from this device only. No outbox op is queued: the Google Form keeps
+ * its response, so deleting here does not undo the request. Pending requests are refused.
+ */
+export async function deleteSentRequest(db: AppDB, id: string): Promise<boolean> {
+  return db.transaction('rw', db.storyRequests, async () => {
+    const row = await db.storyRequests.get(id)
+    if (!row || row.sentAt === null) return false
+    await db.storyRequests.delete(id)
+    return true
+  })
+}
+
+/**
+ * Ids of requests whose storyRequest.submit op is still queued after a failed POST (the sync
+ * engine sets lastError and keeps the op). Empty when every request is sent or never attempted.
+ */
+export async function listFailedRequestIds(db: AppDB): Promise<string[]> {
+  const ops = await db.outbox
+    .filter((op) => op.type === 'storyRequest.submit' && op.lastError !== undefined)
+    .toArray()
+  return ops.map((op) => op.entityId)
+}

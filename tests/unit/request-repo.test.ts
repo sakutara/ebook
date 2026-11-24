@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppDB, type Book } from '../../src/db/db'
 import { normalize } from '../../src/domain/title'
 import { exportData, importData } from '../../src/data/backup'
-import { checkRequest, getRequest, listRequests, markSent, submitRequest } from '../../src/requests/request-repo'
+import { checkRequest, deleteSentRequest, getRequest, listRequests, markSent, submitRequest } from '../../src/requests/request-repo'
 import { setOnline } from '../setup'
 
 let db: AppDB
@@ -199,5 +199,31 @@ describe('request repo', () => {
 
     expect(await getRequest(db, saved.request.id)).toMatchObject({ title: 'Truyện E' })
     expect(await getRequest(db, 'missing-id')).toBeUndefined()
+  })
+})
+
+describe('story-request.delete.local: deleteSentRequest', () => {
+  it('story-request.delete.local: removes a sent request and queues no outbox op', async () => {
+    const saved = await submitRequest(db, { title: 'Truyện Xoá', author: '' })
+    if (saved.kind !== 'saved') throw new Error('expected a saved request')
+    await markSent(db, saved.request.id)
+    const opsBefore = await db.outbox.count()
+
+    expect(await deleteSentRequest(db, saved.request.id)).toBe(true)
+
+    expect(await getRequest(db, saved.request.id)).toBeUndefined()
+    expect(await db.outbox.count()).toBe(opsBefore)
+  })
+
+  it('story-request.delete.local: refuses a request that has not been sent yet', async () => {
+    const saved = await submitRequest(db, { title: 'Truyện Chờ', author: '' })
+    if (saved.kind !== 'saved') throw new Error('expected a saved request')
+
+    expect(await deleteSentRequest(db, saved.request.id)).toBe(false)
+    expect(await getRequest(db, saved.request.id)).toBeDefined()
+  })
+
+  it('story-request.delete.local: unknown id returns false', async () => {
+    expect(await deleteSentRequest(db, 'missing-id')).toBe(false)
   })
 })

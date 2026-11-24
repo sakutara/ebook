@@ -23,6 +23,8 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
+  // Let in-flight Dexie reads from the last action settle before the database is closed.
+  await new Promise((resolve) => setTimeout(resolve, 20))
   cleanup()
   db.close()
   await db.delete()
@@ -200,5 +202,65 @@ describe('request page', () => {
     await screen.findByText('Đã gửi')
     const [row] = await db.storyRequests.toArray()
     expect(row.language).toBe('Ngôn ngữ khác')
+  })
+
+  it('story-request.delete.local: delete button appears only after sending, and confirming removes the row locally', async () => {
+    renderPage()
+    fill('Tên truyện', 'Truyện Cần Xoá')
+    submit()
+    await screen.findByText('Đã gửi')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Xoá yêu cầu Truyện Cần Xoá khỏi máy này' }))
+    const group = screen.getByRole('group', { name: 'Xác nhận xoá' })
+    expect(within(group).getByText(/Google Form không bị ảnh hưởng/)).toBeTruthy()
+    fireEvent.click(within(group).getByRole('button', { name: 'Xoá' }))
+
+    await waitFor(() => expect(screen.queryByText('Truyện Cần Xoá')).toBeNull())
+    expect(await db.storyRequests.count()).toBe(0)
+  })
+
+  it('story-request.delete.local: no delete button for a request that is still pending', async () => {
+    renderPage({ flush: vi.fn(async () => {}) })
+    fill('Tên truyện', 'Truyện Đang Chờ')
+    submit()
+    await screen.findByText('Chờ gửi')
+    expect(screen.queryByRole('button', { name: /Xoá yêu cầu/ })).toBeNull()
+  })
+
+  it('story-request.resend.failed: a failed POST shows an error, marks the row, and offers Gửi lại', async () => {
+    // Simulates the sync engine recording a failed POST: the op stays queued with lastError.
+    const flush = vi.fn(async () => {
+      await db.outbox.toCollection().modify({ attempts: 1, lastError: 'Failed to fetch' })
+    })
+    renderPage({ flush })
+    fill('Tên truyện', 'Truyện Lỗi Mạng')
+    submit()
+
+    expect(await screen.findByText(/Gửi lên Google Form thất bại/)).toBeTruthy()
+    expect(await screen.findByText('Gửi thất bại')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Gửi lại' })).toBeTruthy()
+  })
+
+  it('story-request.resend.success: Gửi lại hides the button once the resend goes through', async () => {
+    let attempt = 0
+    const flush = vi.fn(async () => {
+      attempt += 1
+      if (attempt === 1) {
+        await db.outbox.toCollection().modify({ attempts: 1, lastError: 'Failed to fetch' })
+        return
+      }
+      await db.outbox.clear()
+      await markPendingSent(db)
+    })
+    renderPage({ flush })
+    fill('Tên truyện', 'Truyện Gửi Lại')
+    submit()
+    fireEvent.click(await screen.findByRole('button', { name: 'Gửi lại' }))
+
+    await screen.findByText('Đã gửi')
+    // onResend shows its toast after re-reading the outbox; wait so the test does not end mid-read.
+    await waitFor(() => expect(toast.value?.text).toBe('Đã gửi yêu cầu'))
+    expect(screen.queryByRole('button', { name: 'Gửi lại' })).toBeNull()
+    expect(screen.queryByText('Gửi thất bại')).toBeNull()
   })
 })

@@ -20,7 +20,19 @@ generated: { by: claude-opus-5-5, at: 2026-11-23T08:00:00Z }
 | createdAt | number | index |
 | sentAt | number \| null | set when the Form POST resolved |
 | updatedAt | number | |
-| deleted | 0 | always 0 (no delete UI) |
+| deleted | 0 | always 0; unused. Deletion is a hard delete (see below) |
 
 Each insert appends outbox op `storyRequest.submit` (payload: title, author, originalTitle,
 language, key) in the same transaction. Included in JSON export/import.
+
+**Delete (local only):** `deleteSentRequest` removes a row from this device only, and only when
+`sentAt` is set. It queues no outbox op and does not touch the Google Form. Once removed, the same
+title can be requested again and will be sent again.
+
+**Failed send:** when the POST rejects (network error), the sync engine keeps the op with
+`lastError` set and retries it in the background. `listFailedRequestIds` returns the request ids
+whose op has `lastError`. The list shows "Gửi thất bại" and a "Gửi lại" button for those rows only.
+"Gửi lại" calls the sync engine's `flush`; once the op is acked, the row is marked sent and the
+button disappears. A request that is only queued (offline, never attempted) is "Chờ gửi", not failed.
+Limitation: the POST uses `mode: 'no-cors'`, so the app cannot see HTTP errors (wrong entry ids,
+closed form). Those count as sent.

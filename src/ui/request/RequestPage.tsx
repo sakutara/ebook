@@ -4,9 +4,16 @@ import type { RequestFormConfig } from '../../config'
 import { REQUEST_LANGUAGE_OPTIONS } from '../../domain/request-languages'
 import { lacksDiacritics, normalizeRequestText } from '../../domain/request-text'
 import { normalize } from '../../domain/title'
-import { checkRequest, getRequest, listRequests, submitRequest } from '../../requests/request-repo'
+import {
+  checkRequest,
+  deleteSentRequest,
+  getRequest,
+  listFailedRequestIds,
+  listRequests,
+  submitRequest,
+} from '../../requests/request-repo'
 import { navigate } from '../../router'
-import { IconTextButton } from '../icons/Icon'
+import { IconButton, IconTextButton } from '../icons/Icon'
 import { query } from '../library/library-state'
 import { useLiveQuery } from '../useLiveQuery'
 import { showToast } from '../toast-store'
@@ -23,6 +30,7 @@ interface Message {
 }
 
 const NO_ACCENT = 'Tên truyện chưa có dấu — hãy gõ tiếng Việt có dấu'
+const SEND_FAILED = 'Gửi lên Google Form thất bại. Yêu cầu đã được lưu; bấm Gửi lại trong danh sách bên dưới khi có mạng.'
 const INPUT =
   'field py-2 text-fluid-base'
 
@@ -33,7 +41,30 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
   const [language, setLanguage] = useState('')
   const [confirmedNoAccent, setConfirmedNoAccent] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const requests = useLiveQuery(() => listRequests(db), [db], [] as StoryRequest[])
+  // Re-read whenever the outbox changes, so a resend that succeeds hides its button.
+  const failedIds = useLiveQuery(() => listFailedRequestIds(db), [db], [] as string[])
+
+  async function onDelete(id: string): Promise<void> {
+    setPendingDeleteId(null)
+    const removed = await deleteSentRequest(db, id)
+    if (removed) showToast('Đã xoá khỏi máy này')
+  }
+
+  async function onResend(): Promise<void> {
+    if (!navigator.onLine) {
+      showToast('Chưa có mạng, thử lại khi có mạng')
+      return
+    }
+    try {
+      await flush()
+    } catch {
+      // flush reports failures through the outbox; the list re-reads below.
+    }
+    const stillFailed = (await listFailedRequestIds(db)).length > 0
+    showToast(stillFailed ? 'Vẫn chưa gửi được, thử lại sau' : 'Đã gửi yêu cầu')
+  }
 
   const previewTitle = normalizeRequestText(title)
   const previewAuthor = normalizeRequestText(author)
@@ -82,8 +113,16 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
       }
     }
     const row = await getRequest(db, result.request.id)
-    if (row?.sentAt) showToast('Đã gửi yêu cầu')
-    else if (!navigator.onLine) showToast('Đã lưu, sẽ gửi khi có mạng')
+    if (row?.sentAt) {
+      showToast('Đã gửi yêu cầu')
+      return
+    }
+    if (!navigator.onLine) {
+      showToast('Đã lưu, sẽ gửi khi có mạng')
+      return
+    }
+    const failed = (await listFailedRequestIds(db)).includes(result.request.id)
+    if (failed) setMessage({ text: SEND_FAILED })
     else showToast('Đã lưu, sẽ thử gửi lại')
   }
 
@@ -214,9 +253,39 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
                 <p class="truncate text-fluid-base">{r.title}</p>
                 {r.author !== '' && <p class="text-fluid-sm text-ink/70">{r.author}</p>}
               </div>
-              <span class="shrink-0 rounded-full border border-line bg-surface px-3 py-1 text-fluid-sm">
-                {r.sentAt === null ? 'Chờ gửi' : 'Đã gửi'}
-              </span>
+              <div class="flex shrink-0 items-center gap-2">
+                {pendingDeleteId === r.id ? (
+                  <div role="group" aria-label="Xác nhận xoá" class="flex flex-col items-end gap-1 text-fluid-sm">
+                    <p class="text-right">Xoá khỏi máy này? Google Form không bị ảnh hưởng.</p>
+                    <div class="flex gap-2">
+                      <IconTextButton icon="trash" label="Xoá" variant="danger" onClick={() => void onDelete(r.id)} />
+                      <IconTextButton icon="close" label="Huỷ" onClick={() => setPendingDeleteId(null)} />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {r.sentAt === null && failedIds.includes(r.id) ? (
+                      <>
+                        <span role="status" class="rounded-full border border-danger bg-danger-soft px-3 py-1 text-fluid-sm text-danger">
+                          Gửi thất bại
+                        </span>
+                        <IconTextButton icon="send" label="Gửi lại" onClick={() => void onResend()} />
+                      </>
+                    ) : (
+                      <span class="rounded-full border border-line bg-surface px-3 py-1 text-fluid-sm">
+                        {r.sentAt === null ? 'Chờ gửi' : 'Đã gửi'}
+                      </span>
+                    )}
+                    {r.sentAt !== null && (
+                      <IconButton
+                        icon="trash"
+                        label={`Xoá yêu cầu ${r.title} khỏi máy này`}
+                        onClick={() => setPendingDeleteId(r.id)}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>
