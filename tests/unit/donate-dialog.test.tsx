@@ -42,18 +42,18 @@ function amountInput(): HTMLInputElement {
 }
 
 describe('DonateDialog', () => {
-  it('donate.amount.preset: 20k is selected by default and the QR encodes 20000', () => {
+  it('donate.amount.default: 100k is selected by default and the QR encodes 100000', () => {
     renderDialog()
-    expect(screen.getByRole('radio', { name: '20k' })).toHaveAttribute('aria-checked', 'true')
-    expect(payload()).toContain('540520000')
-    expect(screen.getByText('20.000 ₫')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '100k' })).toHaveAttribute('aria-checked', 'true')
+    expect(payload()).toContain('5406100000')
+    expect(screen.getByText('100.000 ₫')).toBeInTheDocument()
   })
 
   it('donate.amount.preset: picking 50k regenerates the QR and caption shows 50.000 ₫', () => {
     renderDialog()
     fireEvent.click(screen.getByRole('radio', { name: '50k' }))
     expect(screen.getByRole('radio', { name: '50k' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('radio', { name: '20k' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('radio', { name: '100k' })).toHaveAttribute('aria-checked', 'false')
     expect(payload()).toContain('540550000')
     expect(screen.getByText('50.000 ₫')).toBeInTheDocument()
   })

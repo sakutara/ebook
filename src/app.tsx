@@ -5,7 +5,7 @@ import { route, type Route } from './router'
 import type { DonateConfig } from './config'
 import { Icon, IconButton, type IconName } from './ui/icons/Icon'
 import { Toast } from './ui/Toast'
-import { DonateBanner, donateHidden } from './ui/donate/DonateBanner'
+import { DonateBanner } from './ui/donate/DonateBanner'
 
 export interface Pages {
   library: ComponentType
@@ -57,7 +57,7 @@ function NavLinks({ current, class: cls }: { current: Route['name']; class: stri
 
 export function App({ pages, donate = null }: { pages: Pages; donate?: DonateConfig | null }) {
   const r = route.value
-  const showBanner = donate !== null && !donateHidden.value
+  const showBanner = donate !== null
 
   if (r.name === 'read') {
     return (

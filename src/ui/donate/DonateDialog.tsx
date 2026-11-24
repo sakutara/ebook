@@ -27,7 +27,8 @@ export function DonateDialog(p: DonateDialogProps) {
   const { config, onClose } = p
   const renderPng = p.renderPng ?? renderQrPng
   const save = p.save ?? saveBlob
-  const [choice, setChoice] = useState<Choice>(20000)
+  /** Default donation: 100.000 ₫. */
+  const [choice, setChoice] = useState<Choice>(100000)
   const [custom, setCustom] = useState('')
   const dialogRef = useRef<HTMLDialogElement>(null)
   const amountRef = useRef<HTMLInputElement>(null)
