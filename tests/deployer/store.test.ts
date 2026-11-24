@@ -451,6 +451,33 @@ describe('deployer.manage.delete', () => {
   })
 })
 
+describe('deployer.manage.edit', () => {
+  it('deployer.manage.edit: rewrites metadata.json and the catalog entry, keeping epub fields', async () => {
+    const worker = fakeWorker({
+      'catalog.json': catalogJson(['a', 'b']),
+      'books/b/metadata.json': JSON.stringify(metadata('b')),
+    })
+    const s = storeWith(worker)
+    await s.connect()
+
+    await s.updateBook('b', { title: ' Mới ', author: 'Tác giả', genres: ['Tiên hiệp'], description: 'mô tả', note: ' ghi chú ' })
+
+    const meta = JSON.parse(worker.objects.get('books/b/metadata.json')!) as Metadata
+    expect(meta).toMatchObject({ id: 'b', title: 'Mới', author: 'Tác giả', genres: ['Tiên hiệp'], description: 'mô tả', note: 'ghi chú', md5: 'md5-b', size: 10 })
+    const entry = s.catalog.value.find((b) => b.id === 'b')!
+    expect(entry.title).toBe('Mới')
+    expect(s.catalog.value.map((b) => b.id)).toEqual(['a', 'b'])
+    expect(worker.dels).toEqual([])
+  })
+
+  it('deployer.manage.edit: rejects an empty title', async () => {
+    const worker = fakeWorker({ 'catalog.json': catalogJson(['a']) })
+    const s = storeWith(worker)
+    await s.connect()
+    await expect(s.updateBook('a', { title: ' ', author: '', genres: [], description: '', note: '' })).rejects.toThrow()
+  })
+})
+
 describe('deployer.manage.rebuild', () => {
   it('deployer.manage.rebuild: the catalog lists every book whose metadata.json exists, across pages', async () => {
     const worker = fakeWorker(

@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import { titleFromName } from '../../src/domain/title'
 import { AdminError, createAdminClient, type AdminClient } from './admin-client'
-import { removeEntry, updateCatalog } from './catalog-merge'
+import { mergeEntry, removeEntry, updateCatalog } from './catalog-merge'
 import { applyTitleEdit, canUpload, computeStatus, conflictTitle, reviewDraft, suggestSlug, type Draft } from './draft'
 import { EpubError, readEpubMeta, type EpubMeta } from './epub-meta'
 import { makeCover as defaultMakeCover } from './cover-jpeg'
@@ -349,6 +349,32 @@ export function createStore(deps: StoreDeps = {}) {
     await refreshCatalog()
   }
 
+  /** Rewrites metadata.json and the catalog entry of a published book; EPUB and cover are untouched. */
+  async function updateBook(
+    id: string,
+    patch: Pick<Metadata, 'title' | 'author' | 'genres' | 'description'> & { note: string },
+  ): Promise<void> {
+    const c = requireClient()
+    const current = catalog.value.find((b) => b.id === id)
+    if (current === undefined) throw new Error('Không tìm thấy truyện trong catalog')
+    const title = patch.title.trim()
+    if (title === '') throw new Error('Tên truyện không được để trống')
+    const { note: _oldNote, ...rest } = current
+    const note = patch.note.trim()
+    const next: Metadata = {
+      ...rest,
+      title,
+      author: patch.author.trim(),
+      genres: [...patch.genres],
+      description: patch.description,
+      ...(note !== '' ? { note } : {}),
+      updatedAt: new Date().toISOString(),
+    }
+    await c.put(bookKeys(id).metadata, JSON.stringify(next), { contentType: 'application/json; charset=utf-8' })
+    await updateCatalog(c, (cat) => mergeEntry(cat, next, new Date()))
+    await refreshCatalog()
+  }
+
   async function rebuildCatalog(onProgress?: (done: number, total: number) => void): Promise<void> {
     const c = requireClient()
     const metaKeys: string[] = []
@@ -387,6 +413,7 @@ export function createStore(deps: StoreDeps = {}) {
     stopUpload,
     retry,
     deleteBook,
+    updateBook,
     rebuildCatalog,
   }
 }

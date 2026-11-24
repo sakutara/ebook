@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks'
 import { normalize } from '../../../src/domain/title'
 import { IconTextButton } from '../../../src/ui/icons/Icon'
 import type { Metadata } from '../types'
+import { EditBookDialog } from './EditBookDialog'
 import { defaultStore, type DeployerStore } from './store-ref'
 
 export interface PublishedTabProps {
@@ -28,6 +29,7 @@ export function PublishedTab({ store = defaultStore }: PublishedTabProps) {
   const [sort, setSort] = useState<'title' | 'recent' | 'size'>('title')
   const [genreFilter, setGenreFilter] = useState('')
   const [pending, setPending] = useState<Metadata | null>(null)
+  const [editing, setEditing] = useState<Metadata | null>(null)
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -154,16 +156,32 @@ export function PublishedTab({ store = defaultStore }: PublishedTabProps) {
               {book.genres.length > 0 && <p class="text-fluid-sm text-ink-muted">{book.genres.join(', ')}</p>}
               <p class="text-fluid-sm tabular-nums text-ink-muted">{formatMb(book.size)}</p>
             </div>
-            <IconTextButton
-              icon="trash"
-              label="Xoá"
-              variant="danger"
-              disabled={!connected || busy}
-              onClick={() => setPending(book)}
-            />
+            <div class="flex shrink-0 flex-col gap-1">
+              <IconTextButton icon="update" label="Sửa" disabled={!connected || busy} onClick={() => setEditing(book)} />
+              <IconTextButton
+                icon="trash"
+                label="Xoá"
+                variant="danger"
+                disabled={!connected || busy}
+                onClick={() => setPending(book)}
+              />
+            </div>
           </li>
         ))}
       </ul>
+
+      {editing !== null && (
+        <EditBookDialog
+          key={editing.id}
+          book={editing}
+          onCancel={() => setEditing(null)}
+          onSave={async (patch) => {
+            await store.updateBook(editing.id, patch)
+            setEditing(null)
+            setNotice(`Đã cập nhật «${patch.title.trim()}»`)
+          }}
+        />
+      )}
 
       {pending !== null && (
         <dialog
