@@ -13,6 +13,7 @@ export interface BookSheetProps {
   onDownload: () => void
   /** Removes the saved copy (with undo). Only offered for saved books. */
   onRemoveSaved: () => void
+  onShare: () => void
   onClose: () => void
 }
 
@@ -120,6 +121,14 @@ export function BookSheet(p: BookSheetProps) {
           >
             <Icon name={canDownload ? 'download' : 'cloud-off'} />
             {canDownload ? 'Tải tệp EPUB về máy' : 'Cần mạng để tải'}
+          </button>
+          <button
+            type="button"
+            onClick={p.onShare}
+            class={`${BIG_BTN} border border-line bg-surface-2 text-ink hover:border-ink-muted`}
+          >
+            <Icon name="share" />
+            Chia sẻ truyện
           </button>
           {cached && (
             <button

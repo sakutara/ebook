@@ -56,7 +56,9 @@ function NavLinks({ current, class: cls }: { current: Route['name']; class: stri
 }
 
 export function App({ pages, donate = null }: { pages: Pages; donate?: DonateConfig | null }) {
-  const r = route.value
+  const cur = route.value
+  // A shared book link shows the library (its popup opens there).
+  const r: Route = cur.name === 'book' ? { name: 'library' } : cur
   const showBanner = donate !== null
 
   if (r.name === 'read') {

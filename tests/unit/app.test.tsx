@@ -183,6 +183,7 @@ describe('router', () => {
     expect(parseHash('#/read/abc-1')).toEqual({ name: 'read', id: 'abc-1' })
     expect(parseHash('#/read/a%20b')).toEqual({ name: 'read', id: 'a b' })
     expect(parseHash('#/nope/x')).toEqual({ name: 'library' })
+    expect(parseHash('#/book/a%20b')).toEqual({ name: 'book', id: 'a b' })
   })
 
   it('router: hashchange updates the route', () => {
