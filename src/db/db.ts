@@ -24,9 +24,13 @@ export interface Progress extends SyncedRecord {
   fraction: number; bookMd5: string
 }
 
-/** One request for a story to be added to the Google Form. `key` is `requestKey(title, author)`. */
+/**
+ * One request for a story to be added to the Google Form. `key` is `requestKey(title, author)`.
+ * `originalTitle` and `language` are optional and may be absent on rows saved before they existed.
+ */
 export interface StoryRequest {
   id: string; key: string; title: string; author: string;
+  originalTitle?: string; language?: string;
   createdAt: number; sentAt: number | null; updatedAt: number; deleted: 0
 }
 

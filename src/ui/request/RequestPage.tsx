@@ -28,6 +28,8 @@ const INPUT =
 export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
+  const [originalTitle, setOriginalTitle] = useState('')
+  const [language, setLanguage] = useState('')
   const [confirmedNoAccent, setConfirmedNoAccent] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
   const requests = useLiveQuery(() => listRequests(db), [db], [] as StoryRequest[])
@@ -38,7 +40,8 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
 
   async function onSubmit(): Promise<void> {
     if (formConfig === null) return
-    const checked = await checkRequest(db, { title, author })
+    const input = { title, author, originalTitle, language }
+    const checked = await checkRequest(db, input)
     if (checked.kind === 'empty') {
       setMessage({ text: 'Nhập tên truyện' })
       return
@@ -57,7 +60,7 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
       return
     }
 
-    const result = await submitRequest(db, { title, author })
+    const result = await submitRequest(db, input)
     if (result.kind !== 'saved') {
       // Raced with another save between the check and the transaction.
       setMessage({ text: result.kind === 'duplicate' ? 'Bạn đã yêu cầu truyện này' : 'Truyện đã có trong thư viện' })
@@ -66,6 +69,8 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
 
     setTitle('')
     setAuthor('')
+    setOriginalTitle('')
+    setLanguage('')
     setConfirmedNoAccent(false)
     setMessage(null)
     if (navigator.onLine) {
@@ -119,7 +124,7 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
 
         <div class="flex flex-col gap-1">
           <label for="request-author" class="text-fluid-sm font-semibold">
-            Tác giả
+            Tác giả (tùy chọn)
           </label>
           <input
             id="request-author"
@@ -128,6 +133,34 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
             value={author}
             class={INPUT}
             onInput={(e) => setAuthor(e.currentTarget.value)}
+          />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="request-original-title" class="text-fluid-sm font-semibold">
+            Tên gốc (tùy chọn)
+          </label>
+          <input
+            id="request-original-title"
+            type="text"
+            maxLength={200}
+            value={originalTitle}
+            class={INPUT}
+            onInput={(e) => setOriginalTitle(e.currentTarget.value)}
+          />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="request-language" class="text-fluid-sm font-semibold">
+            Ngôn ngữ (tùy chọn)
+          </label>
+          <input
+            id="request-language"
+            type="text"
+            maxLength={50}
+            value={language}
+            class={INPUT}
+            onInput={(e) => setLanguage(e.currentTarget.value)}
           />
         </div>
 

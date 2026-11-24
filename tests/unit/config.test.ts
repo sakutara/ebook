@@ -115,6 +115,22 @@ describe('story-request.config.missing: getRequestFormConfig', () => {
       getRequestFormConfig({ ...FORM_ENV, VITE_REQUEST_ENTRY_KEY: undefined })?.entryKey,
     ).toBeUndefined()
   })
+
+  it('story-request.config.missing: original title and language are read when set, undefined when empty', () => {
+    const env = {
+      ...FORM_ENV,
+      VITE_REQUEST_ENTRY_ORIGINAL_TITLE: 'entry.444',
+      VITE_REQUEST_ENTRY_LANGUAGE: '555',
+    }
+    expect(getRequestFormConfig(env)).toMatchObject({ entryOriginalTitle: '444', entryLanguage: '555' })
+    const blank = getRequestFormConfig({
+      ...FORM_ENV,
+      VITE_REQUEST_ENTRY_ORIGINAL_TITLE: '',
+      VITE_REQUEST_ENTRY_LANGUAGE: undefined,
+    })
+    expect(blank?.entryOriginalTitle).toBeUndefined()
+    expect(blank?.entryLanguage).toBeUndefined()
+  })
 })
 
 describe('app-shell.config.missing: getR2Config', () => {

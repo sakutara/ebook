@@ -6,7 +6,7 @@ const SIDE = 'Điều hướng chính'
 const NAV_LABELS = ['Thư viện', 'Yêu cầu', 'Cài đặt']
 const FORM_GLOB = 'https://docs.google.com/forms/**'
 const TITLE_LABEL = 'Tên truyện'
-const AUTHOR_LABEL = 'Tác giả'
+const AUTHOR_LABEL = 'Tác giả (tùy chọn)'
 const SUBMIT = 'Gửi yêu cầu'
 
 /** Records every POST to the Google Form and answers it locally. Context-level so the service worker path is covered too. */

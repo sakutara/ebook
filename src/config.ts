@@ -59,6 +59,8 @@ export interface RequestFormConfig {
   entryTitle: string
   entryAuthor: string
   entryKey?: string
+  entryOriginalTitle?: string
+  entryLanguage?: string
 }
 
 /** Accepts an entry id written as '123' or 'entry.123'; returns the bare id. */
@@ -78,10 +80,14 @@ export function getRequestFormConfig(
   const entryTitle = entryId(env.VITE_REQUEST_ENTRY_TITLE)
   if (formId === '' || entryTitle === '') return null
   const entryKey = entryId(env.VITE_REQUEST_ENTRY_KEY)
+  const entryOriginalTitle = entryId(env.VITE_REQUEST_ENTRY_ORIGINAL_TITLE)
+  const entryLanguage = entryId(env.VITE_REQUEST_ENTRY_LANGUAGE)
   return {
     formId,
     entryTitle,
     entryAuthor: entryId(env.VITE_REQUEST_ENTRY_AUTHOR),
     entryKey: entryKey === '' ? undefined : entryKey,
+    entryOriginalTitle: entryOriginalTitle === '' ? undefined : entryOriginalTitle,
+    entryLanguage: entryLanguage === '' ? undefined : entryLanguage,
   }
 }

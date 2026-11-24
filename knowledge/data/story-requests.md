@@ -14,11 +14,13 @@ generated: { by: claude-opus-5-5, at: 2026-11-23T08:00:00Z }
 | id | string | primary key (uuid) |
 | key | string | **unique** index; see /knowledge/domain/story-request.md |
 | title | string | normalised |
-| author | string | normalised, may be '' |
+| author | string | normalised, may be '' (optional in the form) |
+| originalTitle | string \| undefined | normalised, may be ''. Added later; rows saved before it are undefined (no schema bump, not indexed) |
+| language | string \| undefined | normalised, may be ''. Same as originalTitle |
 | createdAt | number | index |
 | sentAt | number \| null | set when the Form POST resolved |
 | updatedAt | number | |
 | deleted | 0 | always 0 (no delete UI) |
 
-Each insert appends outbox op `storyRequest.submit` (payload: title, author, key) in the
-same transaction. Included in JSON export/import.
+Each insert appends outbox op `storyRequest.submit` (payload: title, author, originalTitle,
+language, key) in the same transaction. Included in JSON export/import.

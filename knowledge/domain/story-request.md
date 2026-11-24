@@ -13,7 +13,13 @@ generated: { by: claude-opus-5-5, at: 2026-11-23T08:00:00Z }
 |---|---|
 | title (required, 1–200 chars after cleaning) | `  phàm   nhân TU TIÊN truyện ` → `Phàm Nhân Tu Tiên Truyện` |
 | author (optional, ≤ 100 chars) | `vong ngữ` → `Vong Ngữ` |
+| originalTitle (optional, ≤ 200 chars) | `凡人修仙传` → `凡人修仙传` (title-case leaves CJK as is) |
+| language (optional, ≤ 50 chars) | `trung` → `Trung` |
 | key | `pham nhan tu tien truyen|vong ngu` |
+
+`originalTitle` and `language` are stored and sent to the Form but do not affect `key` or
+duplicate checks. Each is posted to its own entry id only when that id is configured and the
+value is non-empty (`VITE_REQUEST_ENTRY_ORIGINAL_TITLE`, `VITE_REQUEST_ENTRY_LANGUAGE`).
 
 # Normalisation (`src/domain/request-text.ts`)
 

@@ -57,7 +57,7 @@ describe('request repo', () => {
       type: 'storyRequest.submit',
       entity: 'storyRequests',
       entityId: rows[0].id,
-      payload: { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ', key: 'pham nhan tu tien|vong ngu' },
+      payload: { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ', originalTitle: '', language: '', key: 'pham nhan tu tien|vong ngu' },
     })
   })
 

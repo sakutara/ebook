@@ -9,6 +9,13 @@ export type SubmitResult =
   | { kind: 'duplicate'; existing: StoryRequest }
   | { kind: 'in-library'; bookTitle: string }
 
+export interface RequestInput {
+  title: string
+  author: string
+  originalTitle?: string
+  language?: string
+}
+
 export type CheckResult =
   | Exclude<SubmitResult, { kind: 'saved' }>
   | { kind: 'ok'; title: string; author: string }
@@ -19,7 +26,7 @@ export type CheckResult =
  */
 export async function checkRequest(
   db: AppDB,
-  input: { title: string; author: string },
+  input: RequestInput,
 ): Promise<CheckResult> {
   const title = normalizeRequestText(input.title)
   if (normalize(title) === '') return { kind: 'empty' }
@@ -39,11 +46,13 @@ export async function checkRequest(
  */
 export async function submitRequest(
   db: AppDB,
-  input: { title: string; author: string },
+  input: RequestInput,
 ): Promise<SubmitResult> {
   const checked = await checkRequest(db, input)
   if (checked.kind !== 'ok') return checked
   const { title, author } = checked
+  const originalTitle = normalizeRequestText(input.originalTitle ?? '')
+  const language = normalizeRequestText(input.language ?? '')
   const key = requestKey(title, author)
   return db.transaction('rw', db.storyRequests, db.outbox, async (): Promise<SubmitResult> => {
     // Re-check inside the transaction so two concurrent submits cannot both save.
@@ -55,6 +64,8 @@ export async function submitRequest(
       key,
       title,
       author,
+      originalTitle,
+      language,
       createdAt: at,
       sentAt: null,
       updatedAt: at,
@@ -65,7 +76,7 @@ export async function submitRequest(
       type: 'storyRequest.submit',
       entity: 'storyRequests',
       entityId: request.id,
-      payload: { title, author, key },
+      payload: { title, author, originalTitle, language, key },
     })
     return { kind: 'saved', request }
   })

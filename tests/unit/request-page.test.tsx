@@ -67,7 +67,7 @@ describe('request page', () => {
   it('story-request.form.required: empty title shows the message and saves nothing', async () => {
     renderPage()
     fill('Tên truyện', ' !!! ')
-    fill('Tác giả', 'Vong Ngữ')
+    fill('Tác giả (tùy chọn)', 'Vong Ngữ')
     submit()
     expect(await screen.findByText('Nhập tên truyện')).toBeTruthy()
     expect(await db.storyRequests.count()).toBe(0)
@@ -77,7 +77,7 @@ describe('request page', () => {
   it('story-request.normalize.title-case: preview shows the normalised values and the list stores them', async () => {
     renderPage()
     fill('Tên truyện', 'phàm nhân TU TIÊN truyện')
-    fill('Tác giả', 'vong ngữ')
+    fill('Tác giả (tùy chọn)', 'vong ngữ')
     expect(screen.getByText('Sẽ gửi: Phàm Nhân Tu Tiên Truyện — Vong Ngữ')).toBeTruthy()
     submit()
     const list = await screen.findByRole('region', { name: 'Đã yêu cầu' })
@@ -91,7 +91,7 @@ describe('request page', () => {
   it('story-request.normalize.no-accent-warning: first submit only warns, second submit saves', async () => {
     renderPage()
     fill('Tên truyện', 'pham nhan tu tien')
-    fill('Tác giả', 'vong ngu')
+    fill('Tác giả (tùy chọn)', 'vong ngu')
     submit()
     expect(await screen.findByText(NO_ACCENT)).toBeTruthy()
     expect(await db.storyRequests.count()).toBe(0)
@@ -112,7 +112,7 @@ describe('request page', () => {
     // Wait for the live list to load so no query is still open when the database closes.
     await within(await screen.findByRole('region', { name: 'Đã yêu cầu' })).findByText('Phàm Nhân Tu Tiên')
     fill('Tên truyện', 'pham nhan tu tien!')
-    fill('Tác giả', 'VONG NGU')
+    fill('Tác giả (tùy chọn)', 'VONG NGU')
     submit()
     expect(await screen.findByText('Bạn đã yêu cầu truyện này')).toBeTruthy()
     expect(screen.queryByText(NO_ACCENT)).toBeNull()
@@ -136,7 +136,7 @@ describe('request page', () => {
   it('story-request.submit.online: a sent request shows the toast and the Đã gửi badge', async () => {
     const { flush } = renderPage()
     fill('Tên truyện', 'phàm nhân tu tiên')
-    fill('Tác giả', 'vong ngữ')
+    fill('Tác giả (tùy chọn)', 'vong ngữ')
     submit()
     await waitFor(() => {
       expect(toast.value?.text).toBe('Đã gửi yêu cầu')
@@ -151,7 +151,7 @@ describe('request page', () => {
     const flush = vi.fn(async () => {})
     renderPage({ flush })
     fill('Tên truyện', 'phàm nhân tu tiên')
-    fill('Tác giả', 'vong ngữ')
+    fill('Tác giả (tùy chọn)', 'vong ngữ')
     submit()
     await waitFor(() => {
       expect(toast.value?.text).toBe('Đã lưu, sẽ gửi khi có mạng')

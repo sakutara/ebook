@@ -7,6 +7,8 @@ import type { OutboxOp } from './outbox'
 interface StoryRequestPayload {
   title: string
   author: string
+  originalTitle?: string
+  language?: string
   key: string
 }
 
@@ -31,6 +33,10 @@ export function createFormAdapter(
         const fields: Record<string, string> = { [`entry.${cfg.entryTitle}`]: payload.title }
         if (cfg.entryAuthor) fields[`entry.${cfg.entryAuthor}`] = payload.author
         if (cfg.entryKey) fields[`entry.${cfg.entryKey}`] = payload.key
+        if (cfg.entryOriginalTitle && payload.originalTitle) {
+          fields[`entry.${cfg.entryOriginalTitle}`] = payload.originalTitle
+        }
+        if (cfg.entryLanguage && payload.language) fields[`entry.${cfg.entryLanguage}`] = payload.language
         try {
           await fetchFn(`https://docs.google.com/forms/d/e/${cfg.formId}/formResponse`, {
             method: 'POST',

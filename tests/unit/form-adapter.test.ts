@@ -124,4 +124,21 @@ describe('form adapter', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1)
     engine.stop()
   })
+
+  it('story-request.submit.optional-fields: original title and language are posted only when configured and filled', async () => {
+    const full: RequestFormConfig = { ...cfg, entryOriginalTitle: '555', entryLanguage: '666' }
+    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: '', originalTitle: '凡人修仙传', language: 'Trung' })
+    await submitRequest(db, { title: 'Đấu Phá', author: '' })
+    const [withExtras, withoutExtras] = await db.outbox.orderBy('createdAt').toArray()
+    const fetchFn = okFetch()
+
+    await createFormAdapter(db, full, fetchFn).push([withExtras, withoutExtras])
+
+    const bodies = fetchFn.mock.calls.map(([, init]) =>
+      Object.fromEntries(new URLSearchParams((init as RequestInit).body as string)),
+    )
+    expect(bodies[0]).toMatchObject({ 'entry.555': '凡人修仙传', 'entry.666': 'Trung' })
+    expect(bodies[1]).not.toHaveProperty('entry.555')
+    expect(bodies[1]).not.toHaveProperty('entry.666')
+  })
 })
