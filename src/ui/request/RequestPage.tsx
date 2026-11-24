@@ -34,11 +34,17 @@ const SEND_FAILED = 'Gửi lên Google Form thất bại. Yêu cầu đã đư�
 const INPUT =
   'field py-2 text-fluid-base'
 
+function throttleText(waitSeconds: number): string {
+  return `Vui lòng đợi ${waitSeconds} giây rồi gửi tiếp`
+}
+
 export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [originalTitle, setOriginalTitle] = useState('')
   const [language, setLanguage] = useState('')
+  // Honeypot: hidden from sight and assistive tech. Real users leave it empty.
+  const [website, setWebsite] = useState('')
   const [confirmedNoAccent, setConfirmedNoAccent] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -72,10 +78,26 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
 
   async function onSubmit(): Promise<void> {
     if (formConfig === null) return
+    if (website.trim() !== '') {
+      // Looks like a bot: pretend success, clear everything, write nothing, send nothing.
+      setTitle('')
+      setAuthor('')
+      setOriginalTitle('')
+      setLanguage('')
+      setWebsite('')
+      setConfirmedNoAccent(false)
+      setMessage(null)
+      showToast('Đã gửi yêu cầu')
+      return
+    }
     const input = { title, author, originalTitle, language }
     const checked = await checkRequest(db, input)
     if (checked.kind === 'empty') {
       setMessage({ text: 'Nhập tên truyện' })
+      return
+    }
+    if (checked.kind === 'too-soon') {
+      setMessage({ text: throttleText(checked.waitSeconds) })
       return
     }
     if (checked.kind === 'duplicate') {
@@ -95,7 +117,8 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
     const result = await submitRequest(db, input)
     if (result.kind !== 'saved') {
       // Raced with another save between the check and the transaction.
-      setMessage({ text: result.kind === 'duplicate' ? 'Bạn đã yêu cầu truyện này' : 'Truyện đã có trong thư viện' })
+      if (result.kind === 'too-soon') setMessage({ text: throttleText(result.waitSeconds) })
+      else setMessage({ text: result.kind === 'duplicate' ? 'Bạn đã yêu cầu truyện này' : 'Truyện đã có trong thư viện' })
       return
     }
 
@@ -134,13 +157,26 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
           e.preventDefault()
           void onSubmit()
         }}
-        class="card flex w-full flex-col gap-4 p-4 sm:p-5"
+        class="card relative flex w-full flex-col gap-4 p-4 sm:p-5"
       >
         {formConfig === null && (
           <p role="status" class="text-fluid-sm">
             Chưa cấu hình Google Form
           </p>
         )}
+
+        <div aria-hidden="true" class="absolute -left-[10000px] top-auto h-px w-px overflow-hidden">
+          <label for="request-website">Website</label>
+          <input
+            id="request-website"
+            name="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={website}
+            onInput={(e) => setWebsite(e.currentTarget.value)}
+          />
+        </div>
 
         <div class="flex flex-col gap-1">
           <label for="request-title" class="text-fluid-sm font-semibold">

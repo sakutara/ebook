@@ -39,7 +39,7 @@ describe('form adapter', () => {
     expect(Object.fromEntries(new URLSearchParams(init.body as string))).toEqual({
       'entry.111': 'Phàm Nhân Tu Tiên',
       'entry.222': 'Vong Ngữ',
-      'entry.333': 'pham nhan tu tien|vong ngu',
+      'entry.333': 'pham nhan tu tien',
     })
     expect(result).toEqual({ ok: [op.id], failed: [] })
     const row = await db.storyRequests.get(request.id)
@@ -127,8 +127,8 @@ describe('form adapter', () => {
 
   it('story-request.submit.optional-fields: original title and language are posted only when configured and filled', async () => {
     const full: RequestFormConfig = { ...cfg, entryOriginalTitle: '555', entryLanguage: '666' }
-    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: '', originalTitle: '凡人修仙传', language: 'Trung' })
-    await submitRequest(db, { title: 'Đấu Phá', author: '' })
+    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: '', originalTitle: '凡人修仙传', language: 'Trung' }, 1_000)
+    await submitRequest(db, { title: 'Đấu Phá', author: '' }, 20_000)
     const [withExtras, withoutExtras] = await db.outbox.orderBy('createdAt').toArray()
     const fetchFn = okFetch()
 

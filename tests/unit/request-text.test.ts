@@ -47,7 +47,9 @@ describe('Request text normalisation', () => {
     expect(titleCaseVi('vi')).toBe('Vi')
   })
 
-  it('story-request.normalize.key: requestKey uses the shared normalize function', () => {
-    expect(requestKey('Phàm Nhân Tu Tiên', 'Vong Ngữ')).toBe('pham nhan tu tien|vong ngu')
+  it('story-request.normalize.key: requestKey is the normalised title only', () => {
+    expect(requestKey('Phàm Nhân Tu Tiên')).toBe('pham nhan tu tien')
+    expect(requestKey('pham nhan tu tien!')).toBe('pham nhan tu tien')
+    expect(requestKey('Phàm Nhân Tu Tiên')).not.toContain('|')
   })
 })

@@ -46,4 +46,5 @@ okf_version: "0.2"
 
 * [Deploy to GitHub Pages](playbooks/deploy.md) - Local build and gh-pages push to ebook.fiddle.vn
 * [Deploy the R2 Worker](playbooks/deploy-r2-worker.md) - Cloudflare bucket, secret, wrangler deploy
+* [Sheet de-duplication](playbooks/sheet-dedupe.md) - Install the Apps Script that removes duplicate story requests
 * [Publish books](playbooks/publish-books.md) - R2 deployer: upload EPUBs, review metadata, delete, rebuild catalog

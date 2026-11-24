@@ -24,3 +24,10 @@
 - `add-r2-deployer` implemented: local page `npm run deployer` (port 5174) parses EPUBs in the browser, generates covers when missing, guards against overwriting another book's slug, uploads 3 files per book and merges `catalog.json` with If-Match.
 - Verified end to end against `wrangler dev` (local R2): upload → catalog → library shows the new book.
 - Playbook: [Publish books](/playbooks/publish-books.md).
+
+## 2026-11-24 — Story request hardening
+- Owner asked to protect the request form from floods; CSRF ruled out. `harden-story-request`:
+  title-only key (Dexie v5 re-key), 10 s throttle, honeypot, Sheet dedupe Apps Script.
+- Updated [Story request](/domain/story-request.md), [storyRequests](/data/story-requests.md),
+  decision [0007](/decisions/0007-google-form-write-only-sink.md); added
+  [Sheet de-duplication](/playbooks/sheet-dedupe.md).

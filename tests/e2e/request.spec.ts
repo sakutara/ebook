@@ -123,7 +123,7 @@ test('story-request.submit.online: one POST with the expected body, row marked s
   const body = new URLSearchParams(posts[0])
   expect(body.get('entry.111')).toBe('Phàm Nhân Tu Tiên')
   expect(body.get('entry.222')).toBe('Vong Ngữ')
-  expect(body.get('entry.333')).toBe('pham nhan tu tien|vong ngu')
+  expect(body.get('entry.333')).toBe('pham nhan tu tien')
   expect([...body.keys()].sort()).toEqual(['entry.111', 'entry.222', 'entry.333'])
 
   const row = page.getByRole('listitem').filter({ hasText: 'Phàm Nhân Tu Tiên' })
@@ -162,4 +162,34 @@ test('story-request.submit.offline + story-request.submit.resync: offline submit
   await expect(row).toContainText('Đã gửi')
   await expect.poll(() => outboxCount(page)).toBe(0)
   expect(posts).toHaveLength(1)
+})
+
+test('story-request.honeypot.hidden: Tab never reaches the website field and it has no visible box', async ({ page, context }) => {
+  await mockR2(context, { books: makeLibrary(3) })
+  await page.goto('./#/request')
+  await expect(page.getByLabel(TITLE_LABEL, { exact: true })).toBeVisible()
+
+  for (const viewport of [
+    { width: 360, height: 800 },
+    { width: 1280, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.getByLabel(TITLE_LABEL, { exact: true }).focus()
+
+    const focusedIds: string[] = []
+    let reachedSubmit = false
+    for (let i = 0; i < 12 && !reachedSubmit; i++) {
+      await page.keyboard.press('Tab')
+      focusedIds.push(await page.evaluate(() => document.activeElement?.id ?? ''))
+      reachedSubmit = await page.getByRole('button', { name: SUBMIT, exact: true }).evaluate((el) => el === document.activeElement)
+    }
+    expect(reachedSubmit, `Tab reaches submit at ${viewport.width}px`).toBe(true)
+    expect(focusedIds, `focus order at ${viewport.width}px`).not.toContain('request-website')
+
+    const box = await page.locator('#request-website').boundingBox()
+    if (!box) throw new Error('honeypot has no bounding box')
+    const offScreen = box.x + box.width <= 0
+    const tiny = box.width <= 1 && box.height <= 1
+    expect(offScreen || tiny, `honeypot box at ${viewport.width}px: ${JSON.stringify(box)}`).toBe(true)
+  }
 })

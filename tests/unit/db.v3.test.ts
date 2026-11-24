@@ -50,7 +50,7 @@ afterEach(async () => {
 describe('db.v3', () => {
   it('story-request.backup.roundtrip: db is at version 3 with storyRequests(id, &key, createdAt)', async () => {
     const db = await newDb()
-    expect(db.verno).toBe(4)
+    expect(db.verno).toBe(5)
 
     const table = db.table('storyRequests')
     expect(table.schema.primKey.name).toBe('id')
@@ -95,7 +95,7 @@ describe('db.v3', () => {
     v2.close()
 
     const db = await newDb(name)
-    expect(db.verno).toBe(4)
+    expect(db.verno).toBe(5)
     expect(await db.progress.get('b1')).toEqual(progressRow)
     expect(await db.storyRequests.count()).toBe(0)
   })
@@ -122,15 +122,15 @@ describe('db.v3', () => {
 
   it('story-request.backup.roundtrip: import skips a row whose unique key matches an existing row with a different id', async () => {
     const db = await newDb()
-    await db.storyRequests.put(request('r-local', 'shared-key', { title: 'Local', updatedAt: 5 }))
+    await db.storyRequests.put(request('r-local', 'remote', { title: 'Remote', updatedAt: 5 }))
 
     const json = JSON.stringify({
       app: db.name,
       schemaVersion: 3,
       tables: {
         storyRequests: [
-          request('r-remote', 'shared-key', { title: 'Remote', updatedAt: 10 }),
-          request('r-other', 'other-key', { title: 'Other', updatedAt: 10 }),
+          request('r-remote', 'remote|old', { title: 'remote!', updatedAt: 10 }),
+          request('r-other', 'other|old', { title: 'Other', updatedAt: 10 }),
         ],
       },
     })
@@ -139,7 +139,7 @@ describe('db.v3', () => {
 
     expect(result.imported).toBe(1)
     expect(await db.storyRequests.get('r-remote')).toBeUndefined()
-    expect(await db.storyRequests.get('r-other')).toMatchObject({ title: 'Other', key: 'other-key' })
-    expect(await db.storyRequests.get('r-local')).toMatchObject({ title: 'Local', key: 'shared-key' })
+    expect(await db.storyRequests.get('r-other')).toMatchObject({ title: 'Other', key: 'other' })
+    expect(await db.storyRequests.get('r-local')).toMatchObject({ title: 'Remote', key: 'remote' })
   })
 })
