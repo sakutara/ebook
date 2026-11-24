@@ -17,7 +17,7 @@ interface Audit {
  * Self-contained on purpose: it is serialized into the page.
  */
 function auditIconOnlyButtons(): Audit {
-  const excluded = 'nav, [role="radiogroup"], dialog, [role="dialog"], [data-banner], form, [data-cover], [data-continue]'
+  const excluded = 'nav, aside, [role="radiogroup"], dialog, [role="dialog"], [data-banner], form, [data-cover], [data-continue]'
   const tocList = '[aria-label="Mục lục"] ul'
   const offenders: string[] = []
   let audited = 0
@@ -126,12 +126,17 @@ test('app-shell.icons.labelled-exceptions: nav links, filter radios and the conf
     await expect(link).toContainText(label)
   }
 
+  // Below xl the filter radios sit in a drawer that has to be opened first.
+  const toggle = page.getByRole('button', { name: 'Mở bộ lọc' })
+  const drawer = await toggle.isVisible()
+  if (drawer) await toggle.click()
   for (const label of ['Tất cả', 'Đã lưu']) {
     const radio = page.getByRole('radio', { name: label, exact: true })
     await expect(radio).toHaveCount(1)
     await expect(radio.locator('svg')).toHaveCount(1)
     await expect(radio).toContainText(label)
   }
+  if (drawer) await page.getByRole('button', { name: 'Đóng bộ lọc' }).click()
 
   await cacheBookAndOpenSettings(page)
   await page.getByRole('button', { name: 'Xoá tất cả bản lưu', exact: true }).click()

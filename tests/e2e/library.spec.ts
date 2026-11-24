@@ -8,17 +8,15 @@ const SEARCH = 'Tìm truyện'
 const TABS = 'Thanh điều hướng'
 const SIDE = 'Điều hướng chính'
 const TOOLBAR_GENRES = 'Thể loại'
-const TOOLBAR_STATUS = 'Bộ lọc'
-const TOOLBAR_AUTHOR = 'Tác giả'
 
 function card(page: Page, title = DPK): Locator {
   return page.getByRole('article', { name: title })
 }
 
-type Box = { x: number; y: number; width: number; height: number }
-
-function overlaps(a: Box, b: Box): boolean {
-  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+/** Below xl the filters live in a drawer; open it when the toggle is shown. */
+async function openFilters(page: Page): Promise<void> {
+  const toggle = page.getByRole('button', { name: 'Mở bộ lọc' })
+  if (await toggle.isVisible()) await toggle.click()
 }
 
 test('library.layout.narrow / library.layout.wide: grid columns, navigation, genre row and no horizontal scroll', async ({ page, context }, info) => {
@@ -33,61 +31,39 @@ test('library.layout.narrow / library.layout.wide: grid columns, navigation, gen
   })
   const narrow = info.project.name === 'mobile'
   if (narrow) expect(columns).toBe(2)
-  else expect(columns).toBeGreaterThanOrEqual(6)
+  else expect(columns).toBeGreaterThanOrEqual(4)
 
   const tabs = page.getByRole('navigation', { name: TABS })
   const side = page.getByRole('navigation', { name: SIDE })
-  const genreRow = page.getByRole('radiogroup', { name: TOOLBAR_GENRES })
+  const aside = page.getByRole('complementary', { name: 'Bộ lọc truyện' })
   if (narrow) {
     await expect(tabs).toBeVisible()
     await expect(side).toBeHidden()
-    // The genre chips scroll sideways inside their own row: the row overflows and clips.
-    const row = await genreRow.evaluate((el) => ({
-      overflowX: getComputedStyle(el).overflowX,
-      scrollable: el.scrollWidth > el.clientWidth,
-    }))
-    expect(row.overflowX).toBe('auto')
-    expect(row.scrollable).toBe(true)
+    // The filters are a drawer at the right edge: hidden until the toggle is pressed.
+    await expect(aside).toBeHidden()
+    await page.getByRole('button', { name: 'Mở bộ lọc' }).click()
+    await expect(aside).toBeVisible()
+    const box = await aside.boundingBox()
+    const vw = page.viewportSize()!.width
+    if (!box) throw new Error('drawer has no bounding box')
+    expect(Math.round(box.x + box.width), 'drawer is flush with the right edge').toBe(vw)
+    await page.getByRole('button', { name: 'Đóng bộ lọc' }).click()
+    await expect(aside).toBeHidden()
   } else {
     await expect(side).toBeVisible()
     await expect(tabs).toBeHidden()
-    // Status filter and author select share one row; the genre chips sit on the row below.
-    const author = page.getByRole('combobox', { name: TOOLBAR_AUTHOR })
-    const boxes = [await page.getByRole('radiogroup', { name: TOOLBAR_STATUS }).boundingBox(), await genreRow.boundingBox(), await author.boundingBox()]
-    if (boxes.some((b) => b === null)) throw new Error('toolbar control has no bounding box')
-    const [status, group, select] = boxes as Box[]
-    expect(group.y, 'genre chips sit below the status filter').toBeGreaterThanOrEqual(status.y + status.height - 1)
-
-    const fits = await genreRow.evaluate((el) => el.scrollWidth <= el.clientWidth)
-    expect(fits, 'genre chips never scroll sideways at 1280 px').toBe(true)
-
+    await expect(page.getByRole('button', { name: 'Mở bộ lọc' })).toBeHidden()
+    // The panel is a column to the right of the grid, and genres are listed vertically.
+    await expect(aside).toBeVisible()
+    const panel = await aside.boundingBox()
+    const first = await card(page).boundingBox()
+    const genreRow = page.getByRole('radiogroup', { name: TOOLBAR_GENRES })
     const chips = await genreRow.getByRole('radio').all()
+    if (!panel || !first) throw new Error('missing bounding box')
+    expect(panel.x, 'filter panel sits right of the books').toBeGreaterThanOrEqual(first.x + first.width)
     expect(chips.length).toBeGreaterThan(1)
-    for (const chip of chips) {
-      const cb = await chip.boundingBox()
-      if (!cb) throw new Error('genre chip has no bounding box')
-      expect(cb.y).toBeGreaterThanOrEqual(group.y - 1)
-      expect(cb.y + cb.height).toBeLessThanOrEqual(group.y + group.height + 1)
-    }
-
-    expect(select.x, 'author select sits to the right of the status filter').toBeGreaterThanOrEqual(status.x + status.width - 1)
-    expect(Math.abs(select.y + select.height / 2 - (status.y + status.height / 2)), 'author select and status filter share a row').toBeLessThanOrEqual(4)
-    expect(group.y, 'genre chips sit below the author select').toBeGreaterThanOrEqual(select.y + select.height - 1)
-
-    // At 820 px (md, narrow side nav) the chips must still fit inside their box and clear the select.
-    await page.setViewportSize({ width: 820, height: 800 })
-    const group820 = await genreRow.boundingBox()
-    const select820 = await author.boundingBox()
-    if (!group820 || !select820) throw new Error('toolbar control has no bounding box at 820 px')
-    for (const chip of await genreRow.getByRole('radio').all()) {
-      const cb = await chip.boundingBox()
-      if (!cb) throw new Error('genre chip has no bounding box at 820 px')
-      expect(cb.x).toBeGreaterThanOrEqual(group820.x - 1)
-      expect(cb.x + cb.width).toBeLessThanOrEqual(group820.x + group820.width + 1)
-      expect(cb.y).toBeGreaterThanOrEqual(group820.y - 1)
-      expect(cb.y + cb.height).toBeLessThanOrEqual(group820.y + group820.height + 1)
-      expect(overlaps(cb, select820), 'genre chip does not overlap the author select at 820 px').toBe(false)
-    }
+    const ys = await Promise.all(chips.map(async (c) => (await c.boundingBox())!.y))
+    expect(ys.every((y, i) => i === 0 || y > ys[i - 1]), 'genres stack vertically').toBe(true)
   }
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -220,6 +196,7 @@ test('library.filter.genre: a genre chip filters the grid and shows its count; t
   await mockR2(context, { books: makeLibrary(30) })
   await page.goto('./')
   await expect(card(page)).toBeVisible()
+  await openFilters(page)
 
   const chip = page.getByRole('radio', { name: /^Tiên hiệp \d+$/ })
   const chipCount = Number((await chip.textContent())?.match(/(\d+)$/)?.[1])
@@ -232,11 +209,11 @@ test('library.filter.genre: a genre chip filters the grid and shows its count; t
   await page.getByRole('radio', { name: 'Tất cả thể loại', exact: true }).click()
   await expect(card(page)).toBeVisible()
 
-  const select = page.getByRole('combobox', { name: 'Tác giả' })
-  const option = select.locator('option', { hasText: 'Nhĩ Căn' })
-  const optionCount = Number((await option.textContent())?.match(/\((\d+)\)$/)?.[1])
+  await page.getByRole('button', { name: 'Tác giả' }).click()
+  const option = page.getByRole('radiogroup', { name: 'Tác giả' }).getByRole('radio', { name: /^Nhĩ Căn \d+$/ })
+  const optionCount = Number((await option.textContent())?.match(/(\d+)$/)?.[1])
   expect(optionCount).toBeGreaterThan(0)
-  await select.selectOption((await option.getAttribute('value')) ?? '')
+  await option.click()
   await expect(page.getByRole('article')).toHaveCount(optionCount)
   await expect(card(page)).toHaveCount(0)
 })

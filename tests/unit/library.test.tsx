@@ -568,10 +568,15 @@ describe('library.filter.author', () => {
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Truyện 1' })
 
-    const select = screen.getByRole('combobox', { name: 'Tác giả' })
-    expect(within(select).getByRole('option', { name: 'Mọi tác giả' })).toBeInTheDocument()
-    expect(within(select).getByRole('option', { name: 'Nhĩ Căn (2)' })).toBeInTheDocument()
-    fireEvent.change(select, { target: { value: normalize('Nhĩ Căn') } })
+    // The author list is a collapse: closed until its header is clicked.
+    const toggle = screen.getByRole('button', { name: 'Tác giả' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('radiogroup', { name: 'Tác giả' })).toBeNull()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const list = screen.getByRole('radiogroup', { name: 'Tác giả' })
+    expect(within(list).getByRole('radio', { name: 'Mọi tác giả' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(within(list).getByRole('radio', { name: 'Nhĩ Căn 2' }))
 
     await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(2))
     expect(screen.getAllByRole('article').map((a) => a.getAttribute('aria-label'))).toEqual(['Truyện 1', 'Truyện 2'])
@@ -589,7 +594,8 @@ describe('library.filter.clear', () => {
     expect(screen.queryByRole('button', { name: 'Xoá bộ lọc' })).toBeNull()
 
     fireEvent.click(screen.getByRole('radio', { name: 'Tiên hiệp 1' }))
-    fireEvent.change(screen.getByRole('combobox', { name: 'Tác giả' }), { target: { value: normalize('Nhĩ Căn') } })
+    fireEvent.click(screen.getByRole('button', { name: 'Tác giả' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Nhĩ Căn 1' }))
     fireEvent.input(screen.getByRole('searchbox', { name: 'Tìm truyện' }), { target: { value: 'de' } })
     // Wait for the 150 ms search debounce to publish, so all three filters are active.
     await waitFor(() => expect(query.value).toBe('de'))
@@ -601,7 +607,7 @@ describe('library.filter.clear', () => {
     expect(genre.value).toBe('')
     expect(author.value).toBe('')
     expect(screen.getByRole('radio', { name: 'Tất cả thể loại' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('combobox', { name: 'Tác giả' })).toHaveValue('')
+    expect(screen.getByRole('radio', { name: 'Mọi tác giả' })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByRole('searchbox', { name: 'Tìm truyện' })).toHaveValue('')
   })
 })
@@ -629,7 +635,7 @@ describe('library.filter.clear (debounce)', () => {
 })
 
 describe('library.filter.a11y', () => {
-  it('library.filter.a11y: genre chips are radios in the "Thể loại" radiogroup and the author select is named "Tác giả"', async () => {
+  it('library.filter.a11y: genre chips are radios in the "Thể loại" radiogroup and authors are a "Tác giả" collapse', async () => {
     await seed([book('1', 'Truyện 1', { genres: ['Tiên hiệp'], author: 'A', normAuthor: 'a' })])
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Truyện 1' })
@@ -639,7 +645,7 @@ describe('library.filter.a11y', () => {
       'Tất cả thể loại',
       'Tiên hiệp 1',
     ])
-    expect(screen.getByRole('combobox', { name: 'Tác giả' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tác giả' })).toHaveAttribute('aria-expanded', 'false')
   })
 })
 
@@ -658,7 +664,8 @@ describe('library.filter.offline', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Huyền huyễn 1' }))
     await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(1))
     fireEvent.click(screen.getByRole('radio', { name: 'Tất cả thể loại' }))
-    fireEvent.change(screen.getByRole('combobox', { name: 'Tác giả' }), { target: { value: 'a' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Tác giả' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'A 1' }))
     await waitFor(() => expect(screen.getAllByRole('article').map((a) => a.getAttribute('aria-label'))).toEqual(['Truyện 1']))
     expect(fetchSpy).not.toHaveBeenCalled()
   })
@@ -678,20 +685,37 @@ describe('library.grid.only', () => {
 })
 
 describe('library.layout (classes only)', () => {
-  it('library.layout.narrow: genre chips scroll inside their own row, the author select shares the filter row and the grid has 2 columns', async () => {
+  it('library.layout.narrow: filters live in a right-hand aside (drawer below xl), genres are a vertical list and the grid has 2 columns', async () => {
     await seed([book('1', 'Truyện 1', { genres: ['Tiên hiệp'], author: 'A', normAuthor: 'a' })])
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Truyện 1' })
 
+    const aside = screen.getByRole('complementary', { name: 'Bộ lọc truyện' })
+    expect(aside).toHaveClass('max-xl:fixed', 'max-xl:end-0', 'xl:sticky', 'max-xl:invisible')
     const group = screen.getByRole('radiogroup', { name: 'Thể loại' })
-    expect(group).toHaveClass('-mx-gutter', 'overflow-x-auto', 'flex', 'px-gutter')
-    expect(group).toHaveClass('md:flex-wrap', 'md:overflow-visible', 'md:mx-0', 'md:px-0')
-    const select = screen.getByRole('combobox', { name: 'Tác giả' })
-    expect(select).toHaveClass('w-full', 'min-h-11')
-    // Saved filter and author select sit on one row.
-    const filterRow = screen.getByRole('radiogroup', { name: 'Bộ lọc' }).parentElement!
-    expect(filterRow.contains(select)).toBe(true)
+    expect(aside.contains(group)).toBe(true)
+    expect(group).toHaveClass('flex-col')
+    expect(aside.contains(screen.getByRole('radiogroup', { name: 'Bộ lọc' }))).toBe(true)
     expect(card('Truyện 1').parentElement).toHaveClass('grid', 'grid-cols-2')
+  })
+
+  it('library.filter.drawer: the toggle button opens the drawer and the close button, backdrop and Escape close it', async () => {
+    await seed([book('1', 'Truyện 1', { genres: ['Tiên hiệp'] })])
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    await screen.findByRole('article', { name: 'Truyện 1' })
+
+    const aside = screen.getByRole('complementary', { name: 'Bộ lọc truyện' })
+    expect(aside).toHaveClass('max-xl:invisible')
+    fireEvent.click(screen.getByRole('button', { name: 'Mở bộ lọc' }))
+    expect(aside).not.toHaveClass('max-xl:invisible')
+    expect(aside).toHaveClass('max-xl:translate-x-0')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng bộ lọc' }))
+    expect(aside).toHaveClass('max-xl:invisible')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mở bộ lọc' }))
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(aside).toHaveClass('max-xl:invisible')
   })
 
   it('library.filter.counts: a genre count is a separate badge inside its chip', async () => {
@@ -806,7 +830,7 @@ describe('app-shell.icons.icon-only (library part)', () => {
     await screen.findByRole('article', { name: 'Bản a' })
 
     const buttons = Array.from(document.querySelectorAll('button')).filter(
-      (b) => !b.closest('nav, [role="radiogroup"], [role="radio"], [role="dialog"]') && !b.hasAttribute('data-cover'),
+      (b) => !b.closest('nav, aside, [role="radiogroup"], [role="radio"], [role="dialog"]') && !b.hasAttribute('data-cover'),
     )
     expect(buttons.length).toBeGreaterThan(0)
     for (const b of buttons) {
