@@ -77,6 +77,8 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
   const [toc, setToc] = useState<TocEntry[]>([])
   const [loc, setLoc] = useState<{ fraction: number; label: string }>({ fraction: 0, label: '' })
   const [prefs, setPrefs] = useState<ReaderPrefs>(DEFAULT_PREFS)
+  const prefsRef = useRef<ReaderPrefs>(DEFAULT_PREFS)
+  prefsRef.current = prefs
   const [chrome, setChrome] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [hint, setHint] = useState(false)
@@ -121,6 +123,18 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
       const a = adapterRef.current
       if (!a || isControl(e.target)) return
       switch (e.key) {
+        case 'AudioVolumeUp':
+        case 'VolumeUp':
+          if (!prefsRef.current.volumeKeys) return
+          e.preventDefault()
+          void a.prev()
+          break
+        case 'AudioVolumeDown':
+        case 'VolumeDown':
+          if (!prefsRef.current.volumeKeys) return
+          e.preventDefault()
+          void a.next()
+          break
         case 'ArrowLeft':
         case 'PageUp':
           e.preventDefault()

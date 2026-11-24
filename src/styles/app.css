@@ -152,3 +152,11 @@ input, select, textarea { font-size: max(16px, 1em); }
   from { transform: translateX(-100%); }
   to { transform: translateX(250%); }
 }
+
+/* Older WebViews (stock Boox browser, Chromium < 108) lack dvh units: without these the reader
+   container collapses to zero height and the page looks blank. */
+@supports not (height: 1dvh) {
+  .min-h-dvh { min-height: 100vh; }
+  .max-h-\[90dvh\] { max-height: 90vh; }
+  .xl\:max-h-\[calc\(100dvh-6rem\)\] { max-height: calc(100vh - 6rem); }
+}

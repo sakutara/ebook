@@ -102,6 +102,20 @@ export function PrefsSheet(p: PrefsSheetProps) {
           })}
         </div>
       </div>
+
+      <div class={ROW}>
+        <span class={ROW_LABEL}>Phím âm lượng</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={prefs.volumeKeys}
+          aria-label="Dùng phím âm lượng để lật trang"
+          onClick={() => set({ volumeKeys: !prefs.volumeKeys })}
+          class="min-h-11 flex-1 cursor-pointer rounded-full border border-line bg-surface-2 text-fluid-sm font-medium text-ink-muted transition-colors aria-checked:border-accent aria-checked:bg-accent aria-checked:text-on-accent"
+        >
+          {prefs.volumeKeys ? 'Bật: lật trang' : 'Tắt'}
+        </button>
+      </div>
     </div>
   )
 }

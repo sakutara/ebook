@@ -16,7 +16,7 @@ describe('reader prefs', () => {
   it('reader.prefs.persist: saved prefs survive reopening the database', async () => {
     const name = 't-' + crypto.randomUUID()
     const db1 = new AppDB(name)
-    const prefs: ReaderPrefs = { fontScale: 1.2, lineHeight: 1.6, theme: 'dark' }
+    const prefs: ReaderPrefs = { fontScale: 1.2, lineHeight: 1.6, theme: 'dark', volumeKeys: false }
     await savePrefs(db1, prefs)
     db1.close()
 
@@ -46,7 +46,7 @@ describe('reader prefs', () => {
   })
 
   it('prefs: prefsCss contains the dark theme colours and 120%', () => {
-    const css = prefsCss({ fontScale: 1.2, lineHeight: 1.6, theme: 'dark' })
+    const css = prefsCss({ fontScale: 1.2, lineHeight: 1.6, theme: 'dark', volumeKeys: false })
     const { fg, bg } = THEMES.dark
     expect(css).toContain(
       `html { font-size: 120% !important; line-height: 1.6 !important; color: ${fg} !important; background: ${bg} !important; }`,
