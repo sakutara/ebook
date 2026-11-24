@@ -92,6 +92,15 @@ export function BookSheet(p: BookSheetProps) {
           </p>
         )}
 
+        {book.description.trim() !== '' && (
+          <p
+            aria-label="Mô tả"
+            class="mt-3 max-h-40 overflow-y-auto whitespace-pre-line text-fluid-sm leading-relaxed text-ink-muted"
+          >
+            {book.description.trim()}
+          </p>
+        )}
+
         <div class="mt-5 grid gap-2">
           <button
             ref={firstBtn}
