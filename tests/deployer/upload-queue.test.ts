@@ -15,6 +15,7 @@ function draft(slug: string, over: Partial<Draft> = {}): Draft {
     author: 'Vong Ngữ',
     genres: ['Tiên hiệp'],
     description: '',
+    note: '',
     language: 'vi',
     slug,
     slugEdited: false,

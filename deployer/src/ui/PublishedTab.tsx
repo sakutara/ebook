@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks'
 import { normalize } from '../../../src/domain/title'
-import { IconButton, IconTextButton } from '../../../src/ui/icons/Icon'
+import { IconTextButton } from '../../../src/ui/icons/Icon'
 import type { Metadata } from '../types'
 import { defaultStore, type DeployerStore } from './store-ref'
 
@@ -154,7 +154,7 @@ export function PublishedTab({ store = defaultStore }: PublishedTabProps) {
               {book.genres.length > 0 && <p class="text-fluid-sm text-ink-muted">{book.genres.join(', ')}</p>}
               <p class="text-fluid-sm tabular-nums text-ink-muted">{formatMb(book.size)}</p>
             </div>
-            <IconButton
+            <IconTextButton
               icon="trash"
               label="Xoá"
               variant="danger"
@@ -175,6 +175,9 @@ export function PublishedTab({ store = defaultStore }: PublishedTabProps) {
         >
           <p id="delete-confirm-text" class="text-fluid-base">
             {`Xoá «${pending.title}» khỏi R2?`}
+          </p>
+          <p class="mt-1 text-fluid-sm text-ink-muted">
+            Toàn bộ tệp EPUB, bìa và metadata của truyện sẽ bị xoá khỏi R2, không khôi phục được.
           </p>
           <div class="mt-4 flex justify-end gap-2">
             <IconTextButton icon="close" label="Huỷ" onClick={() => setPending(null)} />

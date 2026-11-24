@@ -166,6 +166,29 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
             )}
           </div>
 
+          <div class="grid gap-1 text-fluid-sm">
+            <label for={`${idPrefix}-description`}>Mô tả</label>
+            <textarea
+              id={`${idPrefix}-description`}
+              rows={4}
+              class={FIELD}
+              value={draft.description}
+              disabled={!editable}
+              onInput={(e) => update({ description: e.currentTarget.value })}
+            />
+          </div>
+          <div class="grid gap-1 text-fluid-sm">
+            <label for={`${idPrefix}-note`}>Ghi chú (hiện trong cửa sổ truyện)</label>
+            <textarea
+              id={`${idPrefix}-note`}
+              rows={3}
+              class={FIELD}
+              value={draft.note}
+              disabled={!editable}
+              onInput={(e) => update({ note: e.currentTarget.value })}
+            />
+          </div>
+
           <div role="group" aria-label="Thể loại" class="grid gap-2">
             <div class="flex flex-wrap gap-2">
               {KNOWN_GENRES.map((name) => {
@@ -221,6 +244,10 @@ export function DraftCard({ draft, store = defaultStore }: DraftCardProps) {
       )}
 
       {conflict !== null && <p class={`text-fluid-sm font-medium ${DANGER}`}>{`Sẽ ghi đè «${conflict}»`}</p>}
+
+      {draft.state === 'ready' && draft.status === 'exists' && (
+        <p class={`text-fluid-sm font-medium ${DANGER}`}>Nội dung giống hệt bản đã đăng</p>
+      )}
 
       {draft.state === 'uploading' && <ProgressBar percent={draft.progress ?? 0} label="Đang tải lên" />}
 

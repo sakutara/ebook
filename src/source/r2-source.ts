@@ -30,6 +30,7 @@ export interface CatalogEntry {
   author?: string
   genres?: string[]
   description?: string
+  note?: string
   epub: string
   size: number
   md5: string

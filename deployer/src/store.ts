@@ -71,6 +71,7 @@ function newDraft(file: File): Draft {
     author: '',
     genres: [],
     description: '',
+    note: '',
     language: 'vi',
     slug: '',
     slugEdited: false,
@@ -334,7 +335,16 @@ export function createStore(deps: StoreDeps = {}) {
   async function deleteBook(id: string): Promise<void> {
     const c = requireClient()
     const keys = bookKeys(id)
-    for (const key of [keys.epub, keys.cover, keys.metadata]) await c.del(key)
+    // Every object under books/<id>/, plus the three known keys in case the listing misses one.
+    const found = new Set<string>([keys.epub, keys.cover, keys.metadata])
+    const prefix = `books/${id}/`
+    let cursor: string | undefined
+    do {
+      const page = await c.list(prefix, cursor)
+      for (const o of page.objects) if (o.key.startsWith(prefix)) found.add(o.key)
+      cursor = page.cursor || undefined
+    } while (cursor !== undefined)
+    for (const key of found) await c.del(key)
     await updateCatalog(c, (cat) => removeEntry(cat, id, new Date()))
     await refreshCatalog()
   }

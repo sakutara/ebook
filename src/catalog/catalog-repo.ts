@@ -28,6 +28,7 @@ function toBookRow(e: CatalogEntry, syncStartedAt: number): Book {
     normAuthor: normalize(author),
     genres: cleanGenres(e.genres),
     description: typeof e.description === 'string' ? e.description : '',
+    ...(typeof e.note === 'string' && e.note.trim() !== '' ? { note: e.note.trim() } : {}),
     size: e.size,
     modifiedTime: typeof e.updatedAt === 'string' ? Date.parse(e.updatedAt) || 0 : 0,
     md5: e.md5,

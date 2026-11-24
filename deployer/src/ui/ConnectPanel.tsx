@@ -13,7 +13,8 @@ export function ConnectPanel({ store = defaultStore }: ConnectPanelProps) {
   const checking = conn.state === 'checking'
 
   const setConn = (patch: Partial<DeployerStore['conn']['value']>) => {
-    store.conn.value = { ...store.conn.value, ...patch }
+    // Editing the address or code drops the "connected" state so the button comes back.
+    store.conn.value = { ...store.conn.value, ...patch, ...(store.conn.value.state === 'ok' ? { state: 'idle' as const } : {}) }
   }
 
   return (
@@ -59,6 +60,7 @@ export function ConnectPanel({ store = defaultStore }: ConnectPanelProps) {
           />
           <label for="connect-remember">Nhớ trên máy này</label>
         </div>
+        {conn.state !== 'ok' && (
         <button
           type="submit"
           disabled={checking}
@@ -66,6 +68,7 @@ export function ConnectPanel({ store = defaultStore }: ConnectPanelProps) {
         >
           Kết nối
         </button>
+        )}
       </form>
       <div class="mt-3 text-fluid-sm">
         {checking && <p class="text-ink-muted">Đang kiểm tra…</p>}

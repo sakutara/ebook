@@ -8,6 +8,8 @@ export interface Metadata {
   author: string
   genres: string[]
   description: string
+  /** Owner's note shown in the reader popup. Omitted when empty. */
+  note?: string
   language: string
   epub: string
   size: number

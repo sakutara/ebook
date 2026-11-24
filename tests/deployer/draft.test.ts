@@ -21,6 +21,7 @@ function meta(over: Partial<Metadata> & { id: string }): Metadata {
     author: 'Thiên Tàm Thổ Đậu',
     genres: ['Huyền huyễn'],
     description: '',
+    note: '',
     language: 'vi',
     epub: `${over.id}.epub`,
     size: 100,
@@ -39,6 +40,7 @@ function draft(over: Partial<Draft> = {}): Draft {
     author: 'Thiên Tàm Thổ Đậu',
     genres: ['Huyền huyễn'],
     description: 'Mô tả',
+    note: '',
     language: 'vi',
     slug: 'dau-pha',
     slugEdited: false,
@@ -222,5 +224,10 @@ describe('deployer.review: toMetadata', () => {
       md5: 'm2',
       updatedAt: NOW.toISOString(),
     })
+  })
+
+  it('deployer.review.note: writes a trimmed note only when it is not empty', () => {
+    expect(toMetadata(draft({ note: '  Bản dịch hay  ' }), NOW).note).toBe('Bản dịch hay')
+    expect('note' in toMetadata(draft({ note: '   ' }), NOW)).toBe(false)
   })
 })

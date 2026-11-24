@@ -15,6 +15,7 @@ export function metadata(id: string, title = id.toUpperCase(), over: Partial<Met
     author: 'Vong Ngữ',
     genres: [],
     description: '',
+    note: '',
     language: 'vi',
     epub: `${id}.epub`,
     size: 10,

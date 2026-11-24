@@ -15,6 +15,7 @@ export interface Draft {
   author: string
   genres: string[]
   description: string
+  note: string
   language: string
   slug: string
   slugEdited: boolean
@@ -75,7 +76,9 @@ export function conflictTitle(draft: Pick<Draft, 'title' | 'slug'>, catalog: Met
 export function reviewDraft(draft: Draft, catalog: Metadata[]): Draft {
   const status = computeStatus(draft, catalog)
   const conflict = conflictTitle(draft, catalog) !== null
-  return { ...draft, status, selected: status !== 'exists' && draft.state === 'ready' && !conflict }
+  // Re-uploading a book keeps the note already published, unless one was typed.
+  const note = draft.note === '' ? (catalog.find((b) => b.id === draft.slug)?.note ?? '') : draft.note
+  return { ...draft, note, status, selected: status !== 'exists' && draft.state === 'ready' && !conflict }
 }
 
 export function slugError(slug: string): string | null {
@@ -97,6 +100,7 @@ export function applyTitleEdit(draft: Draft, title: string, catalog: Metadata[],
 }
 
 export function toMetadata(draft: Draft, now: Date): Metadata {
+  const note = draft.note.trim()
   return {
     schema: 1,
     id: draft.slug,
@@ -104,6 +108,7 @@ export function toMetadata(draft: Draft, now: Date): Metadata {
     author: draft.author,
     genres: [...draft.genres],
     description: draft.description,
+    ...(note !== '' ? { note } : {}),
     language: draft.language,
     epub: `${draft.slug}.epub`,
     size: draft.size,

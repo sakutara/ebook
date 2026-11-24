@@ -83,6 +83,15 @@ export function BookSheet(p: BookSheetProps) {
           <IconButton icon="close" label="Đóng" class="-me-2 -mt-2 shrink-0 self-start" onClick={p.onClose} />
         </div>
 
+        {book.note !== undefined && book.note !== '' && (
+          <p
+            aria-label="Ghi chú"
+            class="mt-4 max-h-40 overflow-y-auto whitespace-pre-line rounded-xl border border-line bg-surface-2 px-3 py-2 text-fluid-sm text-ink-muted"
+          >
+            {book.note}
+          </p>
+        )}
+
         <div class="mt-5 grid gap-2">
           <button
             ref={firstBtn}
