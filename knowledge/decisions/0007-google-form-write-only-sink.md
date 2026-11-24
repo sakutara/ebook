@@ -26,4 +26,7 @@ Google Form. Decision 0001 forbids a backend; a Google Form is a hosted third-pa
 # Consequences
 
 - Cross-device duplicates reach the Form; the Sheet-side `key` column handles them.
-- Anyone can POST to a public Form; spam control is out of scope.
+- Anyone can POST to a public Form. Amended 2026-11-24 (harden-story-request): CSRF does not apply
+  (no session; the endpoint is Google's). Mitigations without a backend: in-app honeypot and a
+  10 s per-device throttle, plus an Apps Script on the response Sheet that deletes duplicate
+  titles. Direct POSTs still get through; a Worker + Turnstile gate is the next step if needed.

@@ -1,4 +1,5 @@
 import type { AppDB } from '../db/db'
+import { requestKey } from '../domain/request-text'
 
 const SKIP = new Set(['outbox', 'books', 'bookFiles', 'covers'])
 
@@ -23,6 +24,8 @@ export async function importData(db: AppDB, json: string): Promise<{ imported: n
       const key = table.schema.primKey.keyPath as string
       const uniqueIndexes = table.schema.indexes.filter((i) => i.unique)
       for (const row of rows) {
+        // Story requests from older backups carry title|author keys; re-derive the title-only key.
+        if (name === 'storyRequests' && typeof row.title === 'string') row.key = requestKey(row.title)
         // Skip rows that would collide with a different record on a unique index (would abort the import).
         let clash = false
         for (const idx of uniqueIndexes) {

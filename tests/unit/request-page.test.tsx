@@ -109,7 +109,8 @@ describe('request page', () => {
   })
 
   it('story-request.dedup.device: a repeated request shows the duplicate message and adds nothing', async () => {
-    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' })
+    // Seeded 60 s ago so the submit throttle (10 s) does not refuse before the duplicate check.
+    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' }, Date.now() - 60_000)
     renderPage()
     // Wait for the live list to load so no query is still open when the database closes.
     await within(await screen.findByRole('region', { name: 'Đã yêu cầu' })).findByText('Phàm Nhân Tu Tiên')
@@ -262,5 +263,51 @@ describe('request page', () => {
     await waitFor(() => expect(toast.value?.text).toBe('Đã gửi yêu cầu'))
     expect(screen.queryByRole('button', { name: 'Gửi lại' })).toBeNull()
     expect(screen.queryByText('Gửi thất bại')).toBeNull()
+  })
+
+  it('story-request.throttle.too-soon: a different title within 10 s shows the wait message and saves nothing new', async () => {
+    // Seeded 3 s ago, so about 7 s remain.
+    await submitRequest(db, { title: 'Truyện Đầu', author: '' }, Date.now() - 3000)
+    renderPage()
+    await within(await screen.findByRole('region', { name: 'Đã yêu cầu' })).findByText('Truyện Đầu')
+    fill('Tên truyện', 'Truyện Thứ Hai')
+    submit()
+
+    expect(await screen.findByText('Vui lòng đợi 7 giây rồi gửi tiếp')).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toContain('Vui lòng đợi 7 giây rồi gửi tiếp')
+    expect(await db.storyRequests.count()).toBe(1)
+    expect(await db.outbox.count()).toBe(1)
+    const list = screen.getByRole('region', { name: 'Đã yêu cầu' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('story-request.honeypot.filled: a filled website field shows the success toast, clears the form, and saves nothing', async () => {
+    const flush = vi.fn(async () => {})
+    renderPage({ flush })
+    const website = document.querySelector('#request-website') as HTMLInputElement
+    fill('Tên truyện', 'Truyện Bẫy')
+    fill('Tác giả (tùy chọn)', 'Kẻ Spam')
+    fireEvent.input(website, { target: { value: 'http://spam.example' } })
+    submit()
+
+    await waitFor(() => {
+      expect(toast.value?.text).toBe('Đã gửi yêu cầu')
+    })
+    expect((screen.getByLabelText('Tên truyện') as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText('Tác giả (tùy chọn)') as HTMLInputElement).value).toBe('')
+    expect(website.value).toBe('')
+    expect(flush).not.toHaveBeenCalled()
+    expect(await db.storyRequests.count()).toBe(0)
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('story-request.honeypot.hidden: the honeypot is hidden from assistive tech and off-screen', () => {
+    const { container } = renderPage()
+    const wrapper = container.querySelector('#request-website')?.closest('div[aria-hidden="true"]')
+    expect(wrapper).not.toBeNull()
+    const website = document.querySelector('#request-website') as HTMLInputElement
+    expect(website.getAttribute('name')).toBe('website')
+    expect(website.tabIndex).toBe(-1)
+    expect(website.getAttribute('autocomplete')).toBe('off')
   })
 })

@@ -43,7 +43,7 @@ describe('request repo', () => {
     expect(rows[0]).toMatchObject({
       title: 'Phàm Nhân Tu Tiên',
       author: 'Vong Ngữ',
-      key: 'pham nhan tu tien|vong ngu',
+      key: 'pham nhan tu tien',
       sentAt: null,
       deleted: 0,
     })
@@ -57,7 +57,7 @@ describe('request repo', () => {
       type: 'storyRequest.submit',
       entity: 'storyRequests',
       entityId: rows[0].id,
-      payload: { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ', originalTitle: '', language: '', key: 'pham nhan tu tien|vong ngu' },
+      payload: { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ', originalTitle: '', language: '', key: 'pham nhan tu tien' },
     })
   })
 
@@ -71,11 +71,11 @@ describe('request repo', () => {
   })
 
   it('story-request.dedup.device: a normalised repeat is refused and adds nothing', async () => {
-    const first = await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' })
+    const first = await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' }, 1000)
     expect(first.kind).toBe('saved')
     await db.outbox.clear()
 
-    const second = await submitRequest(db, { title: 'pham nhan tu tien!', author: 'VONG NGU' })
+    const second = await submitRequest(db, { title: 'pham nhan tu tien!', author: 'VONG NGU' }, 20_000)
 
     expect(second.kind).toBe('duplicate')
     if (second.kind === 'duplicate' && first.kind === 'saved') {
@@ -95,11 +95,25 @@ describe('request repo', () => {
     expect(await db.outbox.count()).toBe(0)
   })
 
-  it('story-request.dedup.author-differs: same title with no author is accepted as a new request', async () => {
-    const first = await submitRequest(db, { title: 'Tam Quốc', author: 'La Quán Trung' })
+  it('story-request.dedup.title-unique: same title with no author or another author is a duplicate', async () => {
+    const first = await submitRequest(db, { title: 'Tam Quốc', author: 'La Quán Trung' }, 1000)
     expect(first.kind).toBe('saved')
 
-    const second = await submitRequest(db, { title: 'Tam Quốc', author: '' })
+    const noAuthor = await submitRequest(db, { title: 'tam quoc', author: '' }, 20_000)
+    expect(noAuthor.kind).toBe('duplicate')
+
+    const otherAuthor = await submitRequest(db, { title: 'tam quoc', author: 'Khác' }, 40_000)
+    expect(otherAuthor.kind).toBe('duplicate')
+
+    expect(await db.storyRequests.count()).toBe(1)
+    expect(await db.outbox.count()).toBe(1)
+  })
+
+  it('story-request.throttle.after-window: a newest row in the future (clock moved back) does not block', async () => {
+    const first = await submitRequest(db, { title: 'Tam Quốc', author: '' }, 5_000_000)
+    expect(first.kind).toBe('saved')
+
+    const second = await submitRequest(db, { title: 'Đấu Phá', author: '' }, 1_000_000)
 
     expect(second.kind).toBe('saved')
     expect(await db.storyRequests.count()).toBe(2)
@@ -115,8 +129,8 @@ describe('request repo', () => {
   })
 
   it('story-request.backup.roundtrip: export then import into an empty db keeps both rows and refuses re-submit', async () => {
-    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' })
-    await submitRequest(db, { title: 'Tam Quốc', author: '' })
+    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' }, 1000)
+    await submitRequest(db, { title: 'Tam Quốc', author: '' }, 20_000)
 
     const json = await (await exportData(db)).text()
 
@@ -134,9 +148,9 @@ describe('request repo', () => {
   })
 
   it('listRequests: returns rows newest first by createdAt', async () => {
-    const a = await submitRequest(db, { title: 'Truyện A', author: '' })
-    const b = await submitRequest(db, { title: 'Truyện B', author: '' })
-    const c = await submitRequest(db, { title: 'Truyện C', author: '' })
+    const a = await submitRequest(db, { title: 'Truyện A', author: '' }, 1000)
+    const b = await submitRequest(db, { title: 'Truyện B', author: '' }, 12_000)
+    const c = await submitRequest(db, { title: 'Truyện C', author: '' }, 24_000)
     if (a.kind !== 'saved' || b.kind !== 'saved' || c.kind !== 'saved') throw new Error('setup failed')
     await db.storyRequests.update(a.request.id, { createdAt: 100 })
     await db.storyRequests.update(b.request.id, { createdAt: 300 })
@@ -160,10 +174,10 @@ describe('request repo', () => {
   })
 
   it('story-request.dedup.device: checkRequest reports a duplicate and writes nothing', async () => {
-    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' })
+    await submitRequest(db, { title: 'Phàm Nhân Tu Tiên', author: 'Vong Ngữ' }, 1000)
     await db.outbox.clear()
 
-    const res = await checkRequest(db, { title: 'pham nhan tu tien!', author: 'VONG NGU' })
+    const res = await checkRequest(db, { title: 'pham nhan tu tien!', author: 'VONG NGU' }, 20_000)
 
     expect(res.kind).toBe('duplicate')
     expect(await db.storyRequests.count()).toBe(1)
@@ -225,5 +239,74 @@ describe('story-request.delete.local: deleteSentRequest', () => {
 
   it('story-request.delete.local: unknown id returns false', async () => {
     expect(await deleteSentRequest(db, 'missing-id')).toBe(false)
+  })
+})
+
+describe('story-request.throttle: submit throttle', () => {
+  it('story-request.throttle.too-soon: a different title 3 000 ms after a save is refused with 7 s wait', async () => {
+    expect((await submitRequest(db, { title: 'Truyện Một', author: '' }, 1000)).kind).toBe('saved')
+    await db.outbox.clear()
+
+    const result = await submitRequest(db, { title: 'Truyện Hai', author: '' }, 4000)
+
+    expect(result).toEqual({ kind: 'too-soon', waitSeconds: 7 })
+    expect(await db.storyRequests.count()).toBe(1)
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('story-request.throttle.too-soon: waitSeconds is at least 1 just before the window ends', async () => {
+    await submitRequest(db, { title: 'Truyện Một', author: '' }, 1000)
+
+    const result = await submitRequest(db, { title: 'Truyện Hai', author: '' }, 10_999)
+
+    expect(result).toEqual({ kind: 'too-soon', waitSeconds: 1 })
+  })
+
+  it('story-request.throttle.after-window: a different title 10 000 ms after a save is saved', async () => {
+    await submitRequest(db, { title: 'Truyện Một', author: '' }, 1000)
+
+    const result = await submitRequest(db, { title: 'Truyện Hai', author: '' }, 11_000)
+
+    expect(result.kind).toBe('saved')
+    expect(await db.storyRequests.count()).toBe(2)
+  })
+
+  it('story-request.throttle.offline: the throttle is local, so an offline device is refused the same way', async () => {
+    setOnline(false)
+    await submitRequest(db, { title: 'Truyện Một', author: '' }, 1000)
+
+    const result = await submitRequest(db, { title: 'Truyện Hai', author: '' }, 3000)
+
+    expect(result).toEqual({ kind: 'too-soon', waitSeconds: 8 })
+    expect(await db.storyRequests.count()).toBe(1)
+    expect(await db.outbox.count()).toBe(1)
+  })
+
+  it('story-request.throttle.too-soon: an empty title returns empty even inside the window', async () => {
+    await submitRequest(db, { title: 'Truyện Một', author: '' }, 1000)
+
+    expect(await checkRequest(db, { title: ' !!! ', author: '' }, 2000)).toEqual({ kind: 'empty' })
+    expect(await submitRequest(db, { title: ' !!! ', author: '' }, 2000)).toEqual({ kind: 'empty' })
+  })
+
+  it('story-request.throttle.too-soon: checkRequest reports too-soon and writes nothing', async () => {
+    await submitRequest(db, { title: 'Truyện Một', author: '' }, 1000)
+    await db.outbox.clear()
+
+    expect(await checkRequest(db, { title: 'Truyện Hai', author: '' }, 4000)).toEqual({ kind: 'too-soon', waitSeconds: 7 })
+    expect(await db.storyRequests.count()).toBe(1)
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('story-request.throttle.too-soon: concurrent submits save only one row', async () => {
+    const [x, y] = await Promise.all([
+      submitRequest(db, { title: 'Truyện Một', author: '' }, 1000),
+      submitRequest(db, { title: 'Truyện Hai', author: '' }, 1000),
+    ])
+
+    const kinds = [x.kind, y.kind].sort()
+    expect(kinds).toEqual(['saved', 'too-soon'])
+    expect(await db.storyRequests.count()).toBe(1)
+    expect(await db.outbox.count()).toBe(1)
   })
 })

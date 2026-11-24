@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { OutboxOp } from '../sync/outbox'
+import { requestKey } from '../domain/request-text'
 
 export interface Setting { key: string; value: unknown; updatedAt: number }
 
@@ -25,7 +26,7 @@ export interface Progress extends SyncedRecord {
 }
 
 /**
- * One request for a story to be added to the Google Form. `key` is `requestKey(title, author)`.
+ * One request for a story to be added to the Google Form. `key` is `requestKey(title)`.
  * `originalTitle` and `language` are optional and may be absent on rows saved before they existed.
  */
 export interface StoryRequest {
@@ -83,6 +84,36 @@ export class AppDB extends Dexie {
         b.description ??= ''
       }),
     )
+    this.version(5).stores({
+      settings: 'key',
+      outbox: 'id, createdAt',
+      books: 'id, normTitle, inDrive, lastSeenAt',
+      bookFiles: 'bookId, cachedAt, lastOpenedAt',
+      covers: null,
+      progress: 'id, bookId, normTitle, updatedAt',
+      storyRequests: 'id, &key, createdAt',
+    }).upgrade(async (tx) => {
+      // Keys were title|author; they are now title-only. Keep the oldest row per title,
+      // delete later duplicates together with their queued submit ops, re-key the rest.
+      const rows = (await tx.table('storyRequests').orderBy('createdAt').toArray()) as StoryRequest[]
+      const seen = new Set<string>()
+      for (const row of rows) {
+        const key = requestKey(row.title)
+        const submitOps = () =>
+          tx.table('outbox').filter((op: { type: string; entityId: string }) =>
+            op.type === 'storyRequest.submit' && op.entityId === row.id)
+        if (seen.has(key)) {
+          await tx.table('storyRequests').delete(row.id)
+          await submitOps().delete()
+          continue
+        }
+        seen.add(key)
+        await tx.table('storyRequests').update(row.id, { key })
+        await submitOps().modify((op: { payload: { key?: string } }) => {
+          op.payload = { ...op.payload, key }
+        })
+      }
+    })
   }
 }
 

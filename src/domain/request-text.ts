@@ -43,8 +43,9 @@ export function normalizeRequestText(raw: string): string {
   return titleCaseVi(cleanText(raw))
 }
 
-export function requestKey(title: string, author: string): string {
-  return `${normalize(title)}|${normalize(author)}`
+/** Accent/case/punctuation-insensitive identity of a request: the title only. */
+export function requestKey(title: string): string {
+  return normalize(title)
 }
 
 /** True when s has a letter and no character above U+007F. */

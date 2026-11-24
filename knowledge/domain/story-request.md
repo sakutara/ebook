@@ -1,7 +1,7 @@
 ---
 type: Domain Concept
 title: Story request
-description: A reader's wish for a title (and author) to be added; normalised to Vietnamese Title Case and de-duplicated by an accent-free key.
+description: A reader's wish for a title (and author) to be added; normalised to Vietnamese Title Case and de-duplicated by an accent-free title key.
 tags: [story-request, normalisation]
 status: stable
 generated: { by: claude-opus-5-5, at: 2026-11-23T08:00:00Z }
@@ -15,7 +15,7 @@ generated: { by: claude-opus-5-5, at: 2026-11-23T08:00:00Z }
 | author (optional, ≤ 100 chars) | `vong ngữ` → `Vong Ngữ` |
 | originalTitle (optional, ≤ 200 chars) | `凡人修仙传` → `凡人修仙传` (title-case leaves CJK as is) |
 | language (optional, dropdown) | one of `REQUEST_LANGUAGE_OPTIONS` (`src/domain/request-languages.ts`): Trung, Anh, Nhật, Hàn, Pháp, Đức, Nga, Tây Ban Nha, Thái, or "Ngôn ngữ khác". Stored as picked, no title-case. Vietnamese is not offered |
-| key | `pham nhan tu tien truyen|vong ngu` |
+| key | `pham nhan tu tien truyen` (title only) |
 
 `originalTitle` and `language` are stored and sent to the Form but do not affect `key` or
 duplicate checks. Each is posted to its own entry id only when that id is configured and the
@@ -32,8 +32,9 @@ value is non-empty (`VITE_REQUEST_ENTRY_ORIGINAL_TITLE`, `VITE_REQUEST_ENTRY_LAN
 5. Accent recovery: if `normalize(title)` (accent-free, /knowledge/domain/book.md) equals a
    catalog book's `normTitle`, the request is a duplicate of a book already in the library.
 
-**key** = `normalize(title) + '|' + normalize(author)` — accent-, case- and
-punctuation-insensitive, so "Pham nhan tu tien" and "Phàm Nhân Tu Tiên" collide.
+**key** = `normalize(title)` — accent-, case- and punctuation-insensitive, so "Pham nhan tu
+tien" and "Phàm Nhân Tu Tiên" collide. The author is not part of it (owner, 2026-11-24): one
+title is requested once, whoever the author. Keys before Dexie v5 were `title|author`.
 
 # Accents
 
@@ -43,5 +44,14 @@ legitimately non-Vietnamese, e.g. "Harry Potter").
 
 # Duplicate rules
 
-- Same key already in `storyRequests` on this device → refused: "Bạn đã yêu cầu truyện này".
+- Same key (title) already in `storyRequests` on this device → refused: "Bạn đã yêu cầu truyện này".
 - Title matches a catalog book → refused: "Truyện đã có trong thư viện" + link to search it.
+
+# Anti-spam (harden-story-request)
+
+- **Throttle:** one request per 10 s per device, measured from the newest `createdAt`
+  ("Vui lòng đợi N giây rồi gửi tiếp"). Checked after "empty", before library/duplicate.
+- **Honeypot:** hidden `website` field; when filled the form fakes success and saves nothing.
+- **Sheet:** `scripts/apps-script/dedupe-requests.gs` deletes rows whose normalised title already
+  exists — catches cross-device repeats and direct POSTs. See /knowledge/playbooks/sheet-dedupe.md.
+- None of these stop a direct POST to Google; that would need a server gate (Worker + Turnstile).

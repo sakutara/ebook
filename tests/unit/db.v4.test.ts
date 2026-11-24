@@ -66,7 +66,7 @@ describe('db.v4', () => {
     v3.close()
 
     const db = await newDb(name)
-    expect(db.verno).toBe(4)
+    expect(db.verno).toBe(5)
 
     const row = await db.books.get('b1')
     expect(row).toBeDefined()
@@ -84,6 +84,6 @@ describe('db.v4', () => {
     const db = await newDb()
 
     expect(db.tables.map((t) => t.name)).not.toContain('covers')
-    expect(db.verno).toBe(4)
+    expect(db.verno).toBe(5)
   })
 })
