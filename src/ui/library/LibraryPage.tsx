@@ -16,6 +16,7 @@ import { BookSheet } from './BookSheet'
 import { CoverImage } from './CoverImage'
 import { authorOptions, buildCards, genreOptions, type CardModel } from './library-model'
 import { author, clearFilters, filter, genre, query } from './library-state'
+import { FilterPanel } from './FilterPanel'
 import { SearchBar } from './SearchBar'
 import { useIncrementalList } from './useIncrementalList'
 
@@ -32,13 +33,6 @@ const LAST_KEY = 'library.lastOpened'
 /** Books read past this fraction count as finished and leave the "Đọc tiếp" row. */
 const FINISHED = 0.99
 const GRID = 'grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]'
-const FILTERS = [
-  { value: 'all', label: 'Tất cả', icon: 'filter-all' },
-  { value: 'saved', label: 'Đã lưu', icon: 'filter-saved' },
-] as const
-
-const SEGMENT =
-  'inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full px-3 text-fluid-sm font-medium transition-colors duration-150 aria-checked:bg-accent aria-checked:text-on-accent aria-checked:shadow-sm'
 
 function cacheErrorText(e: unknown): string {
   const kind = e instanceof CacheError ? e.kind : 'network'
@@ -132,6 +126,12 @@ export function LibraryPage({ services }: LibraryPageProps) {
   const genreValue = genres.some((o) => o.value === g) ? g : ''
   const authorValue = authors.some((o) => o.value === a) ? a : ''
   const hasFilters = q !== '' || g !== '' || a !== ''
+  const activeFilters = (f === 'saved' ? 1 : 0) + (genreValue !== '' ? 1 : 0) + (authorValue !== '' ? 1 : 0)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // Set once the saved scroll position has been restored (see below). Until then the page may be
+  // shorter than the saved offset, and the browser's clamped scrollY must not overwrite it.
+  const restored = useRef(false)
 
   // Remember the scroll position while scrolling (throttled to frames). Not written on unmount:
   // by then the reader has replaced the page and the browser has already clamped scrollY.
@@ -140,6 +140,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
     let frame = 0
     const save = () => {
       frame = 0
+      if (!restored.current) return
       try {
         sessionStorage.setItem(SCROLL_KEY, String(Math.round(window.scrollY)))
       } catch {
@@ -157,7 +158,6 @@ export function LibraryPage({ services }: LibraryPageProps) {
   }, [])
 
   // Restore once per mount, after the first render that has cards (or the catalog is known empty).
-  const restored = useRef(false)
   useLayoutEffect(() => {
     if (restored.current || !loaded) return
     if (visible.length === 0 && catalogCards.length > 0) return
@@ -282,16 +282,12 @@ export function LibraryPage({ services }: LibraryPageProps) {
   }, [loaded, catalogCards, progress])
   const showContinue = !hasFilters && f === 'all' && continueCards.length > 0
 
-  const genreChips = [
-    { value: '', label: 'Tất cả thể loại', count: undefined as number | undefined },
-    ...genres.map((o) => ({ value: o.value, label: o.label, count: o.count as number | undefined })),
-  ]
-
   const line = statusLine(status)
   const syncing = status.state === 'syncing'
 
   return (
-    <section class="flex flex-col gap-4 py-3">
+    <section class="py-3 xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-8">
+      <div class="flex min-w-0 flex-col gap-4">
       <div class="flex flex-col gap-2.5">
         <div class="flex items-center gap-2">
           <SearchBar />
@@ -304,83 +300,22 @@ export function LibraryPage({ services }: LibraryPageProps) {
               onClick={() => void catalogSync.sync({ force: true })}
             />
           )}
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div role="radiogroup" aria-label="Bộ lọc" class="flex shrink-0 gap-0.5 rounded-full border border-line bg-surface-2 p-0.5">
-            {FILTERS.map((o) => {
-              const on = f === o.value
-              return (
-                <button
-                  key={o.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => {
-                    filter.value = o.value
-                  }}
-                  class={`${SEGMENT} ${on ? '' : 'text-ink-muted hover:text-ink'}`}
-                >
-                  <Icon name={o.icon} class="hidden size-5 sm:inline-flex" />
-                  {o.label}
-                </button>
-              )
-            })}
-          </div>
-
-          <label class="relative min-w-0 flex-1 md:max-w-xs">
-            <span class="sr-only">Tác giả</span>
-            <select
-              aria-label="Tác giả"
-              value={authorValue}
-              onChange={(e) => {
-                author.value = (e.currentTarget as HTMLSelectElement).value
-              }}
-              class={`min-h-11 w-full cursor-pointer appearance-none truncate rounded-full border bg-surface ps-4 pe-9 text-fluid-sm transition-colors hover:border-ink-muted ${authorValue ? 'border-accent font-semibold text-accent' : 'border-line text-ink'}`}
-            >
-              <option value="">Mọi tác giả</option>
-              {authors.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {`${o.label} (${o.count})`}
-                </option>
-              ))}
-            </select>
-            <span aria-hidden="true" class="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-ink-muted">▾</span>
-          </label>
-        </div>
-
-        <div
-          role="radiogroup"
-          aria-label="Thể loại"
-          class="-mx-gutter flex gap-2 overflow-x-auto px-gutter pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
-        >
-          {genreChips.map((chip) => {
-            const on = genreValue === chip.value
-            return (
-              <button
-                key={chip.value || 'all'}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => {
-                  genre.value = chip.value
-                }}
-                class="chip gap-2 text-fluid-sm"
+          <span class="relative xl:hidden">
+            <IconButton
+              icon="sliders"
+              label="Mở bộ lọc"
+              pressed={filtersOpen}
+              onClick={() => setFiltersOpen(true)}
+            />
+            {activeFilters > 0 && (
+              <span
+                aria-hidden="true"
+                class="pointer-events-none absolute -end-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-accent px-1 text-xs font-semibold tabular-nums text-on-accent"
               >
-                <span>{chip.label}</span>
-                {chip.count !== undefined && (
-                  <>
-                    {' '}
-                    <span
-                      class={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${on ? 'bg-on-accent/20 text-on-accent' : 'bg-surface-2 text-ink-muted'}`}
-                    >
-                      {chip.count}
-                    </span>
-                  </>
-                )}
-              </button>
-            )
-          })}
+                {activeFilters}
+              </span>
+            )}
+          </span>
         </div>
 
         {(hasFilters || line) && (
@@ -516,6 +451,17 @@ export function LibraryPage({ services }: LibraryPageProps) {
           }}
         />
       )}
+      </div>
+
+      <FilterPanel
+        authors={authors}
+        authorValue={authorValue}
+        genres={genres}
+        genreValue={genreValue}
+        resultCount={cards.length}
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+      />
     </section>
   )
 }
