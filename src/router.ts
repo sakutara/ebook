@@ -3,6 +3,8 @@ import { signal } from '@preact/signals'
 export type Route =
   | { name: 'library' }
   | { name: 'read'; id: string }
+  /** Shared link: opens the library with this book's popup. */
+  | { name: 'book'; id: string }
   | { name: 'settings' }
   | { name: 'request' }
 
@@ -13,6 +15,8 @@ export function parseHash(hash: string): Route {
   if (h === '/request') return { name: 'request' }
   const m = /^\/read\/(.+)$/.exec(h)
   if (m) return { name: 'read', id: decodeURIComponent(m[1]) }
+  const b = /^\/book\/(.+)$/.exec(h)
+  if (b) return { name: 'book', id: decodeURIComponent(b[1]) }
   return { name: 'library' }
 }
 

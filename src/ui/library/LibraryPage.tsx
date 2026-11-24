@@ -1,9 +1,9 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { AppDB, Book, BookFile, Progress } from '../../db/db'
 import type { Services } from '../../services'
 import { catalogStatus, type CatalogStatus } from '../../catalog/catalog-sync'
 import { syncStatus } from '../../sync/sync-engine'
-import { navigate } from '../../router'
+import { navigate, route } from '../../router'
 import { getBookFile, CacheError } from '../../cache/book-cache'
 import { isSlug } from '../../domain/slug'
 import { epubFileName } from '../../domain/file-name'
@@ -33,6 +33,30 @@ const LAST_KEY = 'library.lastOpened'
 /** Books read past this fraction count as finished and leave the "Đọc tiếp" row. */
 const FINISHED = 0.99
 const GRID = 'grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]'
+
+/** Link that reopens this book's popup in the web app. */
+export function bookShareUrl(id: string): string {
+  const u = new URL(location.href)
+  u.hash = `#/book/${encodeURIComponent(id)}`
+  u.search = ''
+  return u.toString()
+}
+
+async function shareBook(book: Book): Promise<void> {
+  const url = bookShareUrl(book.id)
+  const text = book.author !== '' ? `${book.title} — ${book.author}` : book.title
+  try {
+    if (typeof navigator.share === 'function') {
+      await navigator.share({ title: book.title, text, url })
+      return
+    }
+    await navigator.clipboard.writeText(url)
+    showToast('Đã chép liên kết truyện')
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return
+    showToast('Không thể chia sẻ liên kết')
+  }
+}
 
 function cacheErrorText(e: unknown): string {
   const kind = e instanceof CacheError ? e.kind : 'network'
@@ -236,6 +260,13 @@ export function LibraryPage({ services }: LibraryPageProps) {
   // The action sheet for the tapped cover. Read the card fresh from the list on each render so
   // its badges follow downloads and removals while it is open.
   const [sheetId, setSheetId] = useState<string | null>(null)
+  // A shared link (#/book/<id>) opens that book's popup, then leaves the hash at the library.
+  const shared = route.value
+  useEffect(() => {
+    if (shared.name !== 'book') return
+    setSheetId(shared.id)
+    navigate('#/', { replace: true })
+  }, [shared])
   const sheetCard = sheetId === null ? undefined : catalogCards.find((c) => c.book.id === sheetId)
 
   // Reading needs the file in the cache first: a cached book opens at once, otherwise fetch then open.
@@ -437,6 +468,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
           online={canFetch}
           coverUrl={coverUrlOf(sheetCard.book)}
           onClose={() => setSheetId(null)}
+          onShare={() => void shareBook(sheetCard.book)}
           onRead={() => {
             setSheetId(null)
             onRead(sheetCard)

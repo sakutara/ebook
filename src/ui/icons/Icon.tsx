@@ -34,6 +34,7 @@ export const ICON_NAMES = [
   'request',
   'sliders',
   'saved',
+  'share',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
