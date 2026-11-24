@@ -38,11 +38,13 @@ export function canonicalGenre(name: string): string {
   return titleCase(name)
 }
 
-/** Canonical genres from EPUB subjects: empties dropped, deduped by key, first-seen order kept. */
+/** Canonical genres from EPUB subjects (each may hold several, separated by , ; / |): empties dropped, deduped by key, first-seen order kept. */
 export function genresFromSubjects(subjects: string[]): string[] {
   const seen = new Set<string>()
   const result: string[] = []
-  for (const subject of subjects) {
+  // Some EPUBs pack every genre into one <dc:subject> ("A, B, C"), so split on , ; / |.
+  const parts = subjects.flatMap((subject) => subject.split(/[,;/|]/))
+  for (const subject of parts) {
     const canonical = canonicalGenre(subject)
     if (canonical === '') continue
     const key = genreKey(canonical)
