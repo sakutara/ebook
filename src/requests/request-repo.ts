@@ -52,7 +52,8 @@ export async function submitRequest(
   if (checked.kind !== 'ok') return checked
   const { title, author } = checked
   const originalTitle = normalizeRequestText(input.originalTitle ?? '')
-  const language = normalizeRequestText(input.language ?? '')
+  // Picked from a fixed list (REQUEST_LANGUAGE_OPTIONS), so stored as-is, not title-cased.
+  const language = (input.language ?? '').trim()
   const key = requestKey(title, author)
   return db.transaction('rw', db.storyRequests, db.outbox, async (): Promise<SubmitResult> => {
     // Re-check inside the transaction so two concurrent submits cannot both save.

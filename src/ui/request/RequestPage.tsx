@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks'
 import type { AppDB, StoryRequest } from '../../db/db'
 import type { RequestFormConfig } from '../../config'
+import { REQUEST_LANGUAGE_OPTIONS } from '../../domain/request-languages'
 import { lacksDiacritics, normalizeRequestText } from '../../domain/request-text'
 import { normalize } from '../../domain/title'
 import { checkRequest, getRequest, listRequests, submitRequest } from '../../requests/request-repo'
@@ -154,14 +155,19 @@ export function RequestPage({ db, formConfig, flush }: RequestPageProps) {
           <label for="request-language" class="text-fluid-sm font-semibold">
             Ngôn ngữ (tùy chọn)
           </label>
-          <input
+          <select
             id="request-language"
-            type="text"
-            maxLength={50}
             value={language}
             class={INPUT}
-            onInput={(e) => setLanguage(e.currentTarget.value)}
-          />
+            onChange={(e) => setLanguage(e.currentTarget.value)}
+          >
+            <option value="">Chọn ngôn ngữ</option>
+            {REQUEST_LANGUAGE_OPTIONS.map((lang) => (
+              <option key={lang} value={lang}>
+                {lang}
+              </option>
+            ))}
+          </select>
         </div>
 
         {hasPreview && (

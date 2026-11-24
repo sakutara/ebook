@@ -179,4 +179,26 @@ describe('request page', () => {
     const form = container.querySelector('form') as HTMLElement
     expect(form.className.split(/\s+/)).toContain('w-full')
   })
+
+  it('story-request.language.dropdown: offers 9 common languages and "Ngôn ngữ khác", never Vietnamese', () => {
+    renderPage()
+    const select = screen.getByLabelText('Ngôn ngữ (tùy chọn)') as HTMLSelectElement
+    expect(select.tagName).toBe('SELECT')
+    const values = Array.from(select.options).map((o) => o.value).filter((v) => v !== '')
+    expect(values).toHaveLength(10)
+    expect(values).toContain('Ngôn ngữ khác')
+    expect(values).not.toContain('Tiếng Việt')
+    expect(values).not.toContain('Việt')
+  })
+
+  it('story-request.language.dropdown: the picked language is stored on the request', async () => {
+    renderPage()
+    fill('Tên truyện', 'Đấu Phá Thương Khung')
+    fireEvent.change(screen.getByLabelText('Ngôn ngữ (tùy chọn)'), { target: { value: 'Ngôn ngữ khác' } })
+    submit()
+    // Wait for the whole save-and-send chain to finish before afterEach closes the database.
+    await screen.findByText('Đã gửi')
+    const [row] = await db.storyRequests.toArray()
+    expect(row.language).toBe('Ngôn ngữ khác')
+  })
 })
