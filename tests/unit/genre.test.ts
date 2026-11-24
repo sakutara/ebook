@@ -68,4 +68,8 @@ describe('library.filter.genre: genresFromSubjects', () => {
   it('library.filter.genre: returns empty array for no subjects', () => {
     expect(genresFromSubjects([])).toEqual([])
   })
+
+  it('splits a single subject that packs several genres', () => {
+    expect(genresFromSubjects(['Đô thị, Linh dị; Tiên hiệp'])).toEqual(['Đô Thị', 'Linh Dị', 'Tiên hiệp'])
+  })
 })
