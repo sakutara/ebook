@@ -22,6 +22,7 @@ import { useBackClose } from '../useBackClose'
 import { ProgressBar } from '../ProgressBar'
 import { ReaderChrome } from './ReaderChrome'
 import { TocPanel, type TocEntry } from './TocPanel'
+import { startMediaKeys, type MediaKeys } from '../../reader/media-keys'
 import { PrefsSheet } from './PrefsSheet'
 
 export interface ReaderDeps {
@@ -77,6 +78,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
   const [toc, setToc] = useState<TocEntry[]>([])
   const [loc, setLoc] = useState<{ fraction: number; label: string }>({ fraction: 0, label: '' })
   const [prefs, setPrefs] = useState<ReaderPrefs>(DEFAULT_PREFS)
+  const mediaRef = useRef<MediaKeys | null>(null)
   const prefsRef = useRef<ReaderPrefs>(DEFAULT_PREFS)
   prefsRef.current = prefs
   const [chrome, setChrome] = useState(false)
@@ -95,6 +97,28 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
     introTimer.current = setTimeout(() => setChrome(false), CHROME_INTRO_MS)
     return () => clearTimeout(introTimer.current)
   }, [view.kind])
+
+  // Media-session page turning (headset / remote / lock screen buttons). Needs a gesture to
+  // start playing, so arm on the first tap anywhere; reader taps inside the book arm it too.
+  useEffect(() => {
+    if (view.kind !== 'ready' || !prefs.mediaKeys) return
+    const mk = startMediaKeys({
+      title,
+      onPrev: () => void adapterRef.current?.prev(),
+      onNext: () => void adapterRef.current?.next(),
+    })
+    if (!mk) return
+    mediaRef.current = mk
+    const arm = (): void => mk.arm()
+    window.addEventListener('pointerdown', arm)
+    window.addEventListener('keydown', arm)
+    return () => {
+      window.removeEventListener('pointerdown', arm)
+      window.removeEventListener('keydown', arm)
+      mk.stop()
+      mediaRef.current = null
+    }
+  }, [view.kind, prefs.mediaKeys, title])
 
   const dismissHint = (): void => {
     setHint(false)
@@ -123,18 +147,6 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
       const a = adapterRef.current
       if (!a || isControl(e.target)) return
       switch (e.key) {
-        case 'AudioVolumeUp':
-        case 'VolumeUp':
-          if (!prefsRef.current.volumeKeys) return
-          e.preventDefault()
-          void a.prev()
-          break
-        case 'AudioVolumeDown':
-        case 'VolumeDown':
-          if (!prefsRef.current.volumeKeys) return
-          e.preventDefault()
-          void a.next()
-          break
         case 'ArrowLeft':
         case 'PageUp':
           e.preventDefault()
@@ -152,6 +164,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
     const onSectionClick = (doc: Document, e: MouseEvent): void => {
       const a = adapterRef.current
       if (!a) return
+      mediaRef.current?.arm()
       if ((e.target as Element | null)?.closest?.('a[href]')) return
       if ((doc.getSelection?.()?.toString() ?? '') !== '') return
       // foliate sizes the section iframe to every column, so its own innerWidth is wider than

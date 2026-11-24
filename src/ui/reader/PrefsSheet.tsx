@@ -104,16 +104,16 @@ export function PrefsSheet(p: PrefsSheetProps) {
       </div>
 
       <div class={ROW}>
-        <span class={ROW_LABEL}>Phím âm lượng</span>
+        <span class={ROW_LABEL}>Nút media</span>
         <button
           type="button"
           role="switch"
-          aria-checked={prefs.volumeKeys}
-          aria-label="Dùng phím âm lượng để lật trang"
-          onClick={() => set({ volumeKeys: !prefs.volumeKeys })}
+          aria-checked={prefs.mediaKeys}
+          aria-label="Lật trang bằng nút tai nghe, remote và màn hình khoá"
+          onClick={() => set({ mediaKeys: !prefs.mediaKeys })}
           class="min-h-11 flex-1 cursor-pointer rounded-full border border-line bg-surface-2 text-fluid-sm font-medium text-ink-muted transition-colors aria-checked:border-accent aria-checked:bg-accent aria-checked:text-on-accent"
         >
-          {prefs.volumeKeys ? 'Bật: lật trang' : 'Tắt'}
+          {prefs.mediaKeys ? 'Bật: tai nghe / remote' : 'Tắt'}
         </button>
       </div>
     </div>

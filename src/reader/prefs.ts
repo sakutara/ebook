@@ -4,11 +4,11 @@ export interface ReaderPrefs {
   fontScale: number
   lineHeight: 1.4 | 1.6 | 1.8
   theme: 'light' | 'sepia' | 'dark'
-  /** Turn pages with the hardware volume keys (up = previous, down = next). */
-  volumeKeys: boolean
+  /** Turn pages with media-session buttons (headset, page-turner remote, lock screen). */
+  mediaKeys: boolean
 }
 
-export const DEFAULT_PREFS: ReaderPrefs = { fontScale: 1, lineHeight: 1.6, theme: 'light', volumeKeys: true }
+export const DEFAULT_PREFS: ReaderPrefs = { fontScale: 1, lineHeight: 1.6, theme: 'light', mediaKeys: true }
 
 export const THEMES = {
   light: { fg: '#2b2118', bg: '#faf6ee' },
@@ -32,8 +32,8 @@ export function clampPrefs(p: Partial<ReaderPrefs>): ReaderPrefs {
   const theme = THEME_NAMES.includes(p?.theme as ReaderPrefs['theme'])
     ? (p.theme as ReaderPrefs['theme'])
     : DEFAULT_PREFS.theme
-  const volumeKeys = typeof p?.volumeKeys === 'boolean' ? p.volumeKeys : DEFAULT_PREFS.volumeKeys
-  return { fontScale, lineHeight, theme, volumeKeys }
+  const mediaKeys = typeof p?.mediaKeys === 'boolean' ? p.mediaKeys : DEFAULT_PREFS.mediaKeys
+  return { fontScale, lineHeight, theme, mediaKeys }
 }
 
 export async function loadPrefs(db: AppDB): Promise<ReaderPrefs> {
