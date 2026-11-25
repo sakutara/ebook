@@ -25,8 +25,8 @@ export function App({ store = defaultStore }: AppProps) {
     <main class="min-h-dvh bg-surface text-ink">
       <header class="sticky top-0 z-20 border-b border-line bg-surface/90 px-4 py-3 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-baseline gap-3">
-          <h1 class="font-serif text-fluid-xl font-semibold">R2 Deployer</h1>
-          <span class="eyebrow">Tủ Truyện · quản trị</span>
+          <h1 class="font-serif text-fluid-xl font-semibold">Fiddle Book Deployer</h1>
+          <span class="eyebrow">Tủ truyện Fiddle · quản trị</span>
         </div>
       </header>
       <div class="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[20rem_1fr]">

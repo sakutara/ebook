@@ -77,7 +77,7 @@ export function App({ pages, donate = null }: { pages: Pages; donate?: DonateCon
       <div class="hidden lg:flex lg:flex-col lg:gap-4 lg:border-r lg:border-line lg:p-gutter">
         <p class="flex items-center gap-2 px-3 py-2 font-serif text-fluid-lg font-semibold">
           <Icon name="read" class="text-accent" />
-          Tủ Truyện
+          Tủ truyện Fiddle
         </p>
         <nav aria-label="Điều hướng chính" class="sticky top-gutter flex flex-col gap-1">
           <NavLinks current={r.name} class="flex" />
@@ -86,7 +86,7 @@ export function App({ pages, donate = null }: { pages: Pages; donate?: DonateCon
 
       <div class="flex min-h-dvh flex-col">
         <header class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-gutter pt-[env(safe-area-inset-top)] backdrop-blur">
-          <h1 class="py-3 font-serif text-fluid-xl font-semibold">{r.name === 'library' ? 'Tủ Truyện' : NAV.find((n) => n.name === r.name)?.label}</h1>
+          <h1 class="py-3 font-serif text-fluid-xl font-semibold">{r.name === 'library' ? 'Tủ truyện Fiddle' : NAV.find((n) => n.name === r.name)?.label}</h1>
           <SyncBadge />
         </header>
 

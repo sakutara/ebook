@@ -15,7 +15,7 @@ function listFiles(dir: string): string[] {
 describe('deployer.build.excluded', () => {
   it('deployer.build.excluded: deployer page exists as its own entry with its own config', () => {
     expect(existsSync(join(root, 'deployer/index.html'))).toBe(true)
-    expect(readFileSync(join(root, 'deployer/index.html'), 'utf-8')).toContain('<title>R2 Deployer</title>')
+    expect(readFileSync(join(root, 'deployer/index.html'), 'utf-8')).toContain('<title>Fiddle Book Deployer</title>')
     expect(existsSync(join(root, 'vite.deployer.config.ts'))).toBe(true)
   })
 
@@ -27,7 +27,7 @@ describe('deployer.build.excluded', () => {
   it('deployer.build.excluded: dist/ contains no deployer page', () => {
     const dist = join(root, 'dist')
     if (!existsSync(dist)) return
-    const offenders = listFiles(dist).filter((file) => readFileSync(file).includes('R2 Deployer'))
+    const offenders = listFiles(dist).filter((file) => readFileSync(file).includes('Fiddle Book Deployer'))
     expect(offenders).toEqual([])
   })
 })

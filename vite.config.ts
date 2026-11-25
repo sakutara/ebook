@@ -34,13 +34,13 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Tủ Truyện',
-        short_name: 'Tủ Truyện',
+        name: 'Tủ truyện Fiddle',
+        short_name: 'Tủ truyện Fiddle',
         start_url: './',
         scope: './',
         display: 'standalone',
-        background_color: '#ffffff',
-        theme_color: '#0f172a',
+        background_color: '#faf6ee',
+        theme_color: '#1f6f50',
         icons: [
           // Generated from public/favicon.svg by @vite-pwa/assets-generator (see scaffold.sh)
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
