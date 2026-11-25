@@ -24,6 +24,7 @@ import { ReaderChrome } from './ReaderChrome'
 import { TocPanel, type TocEntry } from './TocPanel'
 import { startMediaKeys, type MediaKeys } from '../../reader/media-keys'
 import { PrefsSheet } from './PrefsSheet'
+import { startWakeLock } from '../../reader/wake-lock'
 
 export interface ReaderDeps {
   db: AppDB
@@ -119,6 +120,12 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
       mediaRef.current = null
     }
   }, [view.kind, prefs.mediaKeys, title])
+
+  // Keep the screen awake while a book is open.
+  useEffect(() => {
+    if (view.kind !== 'ready') return
+    return startWakeLock()
+  }, [view.kind])
 
   const dismissHint = (): void => {
     setHint(false)
