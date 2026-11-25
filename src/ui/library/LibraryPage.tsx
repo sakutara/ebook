@@ -4,6 +4,7 @@ import type { Services } from '../../services'
 import { catalogStatus, type CatalogStatus } from '../../catalog/catalog-sync'
 import { syncStatus } from '../../sync/sync-engine'
 import { navigate, route } from '../../router'
+import { clearProgress, saveProgress } from '../../progress/progress-repo'
 import { getBookFile, CacheError } from '../../cache/book-cache'
 import { isSlug } from '../../domain/slug'
 import { epubFileName } from '../../domain/file-name'
@@ -144,15 +145,31 @@ export function LibraryPage({ services }: LibraryPageProps) {
   )
   // "Truyện mới" rows only show on the plain library view; searching or filtering lists every match below.
   const showRecentRows = q === '' && g === '' && a === '' && f === 'all'
-  const recent = useMemo(
-    () => (loaded && showRecentRows ? splitRecent(catalogCards, Date.now()) : { day: [], week: [] }),
-    [loaded, showRecentRows, catalogCards],
+  // Started but unfinished books, most recently read first.
+  const continueCards = useMemo(() => {
+    if (!loaded) return []
+    const updated = new Map((progress ?? []).filter((x) => x.deleted === 0).map((x) => [x.bookId, x.updatedAt]))
+    return catalogCards
+      .filter((c) => c.fraction !== undefined && c.fraction > 0 && c.fraction < FINISHED)
+      .sort((x, y) => (updated.get(y.book.id) ?? 0) - (updated.get(x.book.id) ?? 0))
+      .slice(0, 12)
+  }, [loaded, catalogCards, progress])
+  const showContinue = showRecentRows && continueCards.length > 0
+  // Books already in "Đọc tiếp" are left out of every other list.
+  const continueIds = useMemo(
+    () => new Set(showContinue ? continueCards.map((c) => c.book.id) : []),
+    [showContinue, continueCards],
   )
+  const recent = useMemo(() => {
+    if (!loaded || !showRecentRows) return { day: [], week: [] }
+    const r = splitRecent(catalogCards, Date.now())
+    return { day: r.day.filter((c) => !continueIds.has(c.book.id)), week: r.week.filter((c) => !continueIds.has(c.book.id)) }
+  }, [loaded, showRecentRows, catalogCards, continueIds])
   const mainCards = useMemo(() => {
-    if (recent.day.length === 0 && recent.week.length === 0) return cards
     const hidden = new Set([...recent.day, ...recent.week].map((c) => c.book.id))
-    return cards.filter((c) => !hidden.has(c.book.id))
-  }, [cards, recent])
+    for (const id of continueIds) hidden.add(id)
+    return hidden.size === 0 ? cards : cards.filter((c) => !hidden.has(c.book.id))
+  }, [cards, recent, continueIds])
   const { visible, sentinelRef, hasMore } = useIncrementalList(mainCards, 40, '600px')
 
   const cachedIds = useMemo(() => new Set((files ?? []).map((x) => x.bookId)), [files])
@@ -314,16 +331,17 @@ export function LibraryPage({ services }: LibraryPageProps) {
   const coverUrlOf = (b: Book): string | undefined =>
     source && b.inDrive === 1 && isSlug(b.id) ? source.coverUrl(b) : undefined
 
-  // Started but unfinished books, most recently read first.
-  const continueCards = useMemo(() => {
-    if (!loaded) return []
-    const updated = new Map((progress ?? []).filter((x) => x.deleted === 0).map((x) => [x.bookId, x.updatedAt]))
-    return catalogCards
-      .filter((c) => c.fraction !== undefined && c.fraction > 0 && c.fraction < FINISHED)
-      .sort((x, y) => (updated.get(y.book.id) ?? 0) - (updated.get(x.book.id) ?? 0))
-      .slice(0, 12)
-  }, [loaded, catalogCards, progress])
-  const showContinue = !hasFilters && f === 'all' && continueCards.length > 0
+
+  /** Clears one book's reading position; the toast offers undo. */
+  const onClearHistory = async (book: Book) => {
+    const row = await clearProgress(db, book.id)
+    if (!row) return
+    const { updatedAt: _u, deleted: _d, ...input } = row
+    showToast(`Đã xoá lịch sử đọc «${book.title}»`, 6000, {
+      label: 'Hoàn tác',
+      run: () => void saveProgress(db, input),
+    })
+  }
 
   const line = statusLine(status)
   const syncing = status.state === 'syncing'
@@ -399,9 +417,8 @@ export function LibraryPage({ services }: LibraryPageProps) {
                   type="button"
                   data-continue
                   aria-label={`Đọc tiếp ${c.book.title}`}
-                  disabled={fetching[c.book.id] !== undefined || (!c.cached && !canFetch)}
-                  onClick={() => onRead(c)}
-                  class="flex w-full cursor-pointer flex-col gap-1.5 text-start disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => setSheetId(c.book.id)}
+                  class="flex w-full cursor-pointer flex-col gap-1.5 text-start"
                 >
                   <span class="relative block">
                     <CoverImage book={{ title: c.book.title, normTitle: c.book.normTitle }} src={coverUrlOf(c.book)} />
@@ -508,6 +525,14 @@ export function LibraryPage({ services }: LibraryPageProps) {
           coverUrl={coverUrlOf(sheetCard.book)}
           onClose={() => setSheetId(null)}
           onShare={() => void shareBook(sheetCard.book)}
+          onClearHistory={
+            sheetCard.fraction === undefined
+              ? undefined
+              : () => {
+                  setSheetId(null)
+                  void onClearHistory(sheetCard.book)
+                }
+          }
           onRead={() => {
             setSheetId(null)
             onRead(sheetCard)

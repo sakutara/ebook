@@ -38,6 +38,19 @@ export async function copyProgress(
   return copied
 }
 
+/** Soft-delete one book's live position and queue a progress.delete op. Returns the cleared row, or undefined if none. */
+export async function clearProgress(db: AppDB, bookId: string, now = Date.now()): Promise<Progress | undefined> {
+  let cleared: Progress | undefined
+  await db.transaction('rw', db.progress, db.outbox, async () => {
+    const row = await getProgress(db, bookId)
+    if (!row) return
+    await db.progress.put({ ...row, updatedAt: now, deleted: 1 })
+    await enqueue(db, { type: 'progress.delete', entity: 'progress', entityId: bookId, payload: { id: bookId } })
+    cleared = row
+  })
+  return cleared
+}
+
 /** Soft-delete every live position in one transaction. Returns the number of rows cleared. */
 export async function clearAllProgress(db: AppDB, now = Date.now()): Promise<number> {
   let count = 0

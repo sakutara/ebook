@@ -345,6 +345,8 @@ describe('library.badge.states (page)', () => {
       [file('a'), file('b', 'md5-b', 100), file('c')],
       [progressRow('d', 0.426)],
     )
+    // A search keeps the book out of the "Đọc tiếp" row, so its grid card (and progress bar) renders.
+    query.value = 'bản'
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Bản d' })
     await waitFor(() => expect(within(card('Bản a')).getByRole('img', { name: 'Đã lưu' })).toBeInTheDocument())
@@ -359,6 +361,7 @@ describe('library.badge.states (page)', () => {
 describe('library.badge.states (first render)', () => {
   it('library.badge.states: badges are present on the first rendered cards', async () => {
     await seed([book('a', 'Bản a'), book('d', 'Bản d')], [file('a')], [progressRow('d', 0.426)])
+    query.value = 'bản'
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'Bản d' })
     // No waitFor: the grid must not render until every live query has delivered.
@@ -807,11 +810,54 @@ describe('library.continue', () => {
     )
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     const region = await screen.findByRole('region', { name: 'Đọc tiếp' })
-    const items = within(region).getAllByRole('button')
+    const items = within(region).getAllByRole('button', { name: /^Đọc tiếp/ })
     expect(items.map((b) => b.getAttribute('aria-label'))).toEqual(['Đọc tiếp Bản b', 'Đọc tiếp Bản a'])
 
     fireEvent.click(items[0])
-    expect(location.hash).toBe('#/read/b')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Bản b')
+    expect(location.hash).not.toBe('#/read/b')
+  })
+
+  it('library.continue: the popup clear-history button clears only that book history, with undo', async () => {
+    await seed(
+      [book('a', 'Bản a'), book('b', 'Bản b')],
+      [file('a'), file('b')],
+      [{ ...progressRow('a', 0.2), updatedAt: 10 }, { ...progressRow('b', 0.5), updatedAt: 20 }],
+    )
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    const region = await screen.findByRole('region', { name: 'Đọc tiếp' })
+    fireEvent.click(within(region).getByRole('button', { name: 'Đọc tiếp Bản b' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xoá lịch sử đọc' }))
+
+    await waitFor(() => expect(within(region).queryByRole('button', { name: 'Đọc tiếp Bản b' })).toBeNull())
+    expect(within(region).getByRole('button', { name: 'Đọc tiếp Bản a' })).toBeInTheDocument()
+    expect((await db.progress.get('a'))?.deleted).toBe(0)
+    expect((await db.progress.get('b'))?.deleted).toBe(1)
+
+    act(() => toast.value?.action?.run())
+    await waitFor(() => expect(within(region).getByRole('button', { name: 'Đọc tiếp Bản b' })).toBeInTheDocument())
+  })
+})
+
+describe('library.continue.dedupe', () => {
+  it('library.continue.dedupe: books in "Đọc tiếp" are not repeated in the recent rows or the main list', async () => {
+    const now = Date.now()
+    await seed(
+      [
+        book('a', 'Bản a', { modifiedTime: now - 1000 }),
+        book('b', 'Bản b', { modifiedTime: now - 2000 }),
+        book('c', 'Bản c', { modifiedTime: 100 }),
+      ],
+      [],
+      [progressRow('a', 0.4), progressRow('c', 0.3)],
+    )
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    await screen.findByRole('region', { name: 'Đọc tiếp' })
+
+    expect(screen.queryByRole('region', { name: 'Truyện mới trong tuần' })).toBeNull()
+    const day = screen.getByRole('region', { name: 'Truyện mới trong ngày' })
+    expect(within(day).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Bản b'])
+    expect(screen.queryAllByRole('article')).toHaveLength(0)
   })
 })
 

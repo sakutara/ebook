@@ -14,6 +14,8 @@ export interface BookSheetProps {
   /** Removes the saved copy (with undo). Only offered for saved books. */
   onRemoveSaved: () => void
   onShare: () => void
+  /** Clears this book's reading position (with undo). Only offered when the book has one. */
+  onClearHistory?: () => void
   onClose: () => void
 }
 
@@ -130,6 +132,16 @@ export function BookSheet(p: BookSheetProps) {
             <Icon name="share" />
             Chia sẻ truyện
           </button>
+          {p.onClearHistory && (
+            <button
+              type="button"
+              onClick={p.onClearHistory}
+              class="mx-auto mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-4 text-fluid-sm font-medium text-danger hover:bg-danger-soft"
+            >
+              <Icon name="close" class="size-5" />
+              Xoá lịch sử đọc
+            </button>
+          )}
           {cached && (
             <button
               type="button"
