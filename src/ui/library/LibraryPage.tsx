@@ -14,8 +14,8 @@ import { removeSavedCopy } from '../cache-actions'
 import { BookCard } from './BookCard'
 import { BookSheet } from './BookSheet'
 import { CoverImage } from './CoverImage'
-import { authorOptions, buildCards, genreOptions, type CardModel } from './library-model'
-import { author, clearFilters, filter, genre, query } from './library-state'
+import { authorOptions, buildCards, genreOptions, splitRecent, type CardModel } from './library-model'
+import { author, clearFilters, filter, genre, query, sort } from './library-state'
 import { FilterPanel } from './FilterPanel'
 import { SearchBar } from './SearchBar'
 import { useIncrementalList } from './useIncrementalList'
@@ -123,6 +123,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
   const f = filter.value
   const g = genre.value
   const a = author.value
+  const s = sort.value
   const online = syncStatus.value.online
   const status = catalogStatus.value
 
@@ -137,11 +138,22 @@ export function LibraryPage({ services }: LibraryPageProps) {
   const cards = useMemo(
     () =>
       loaded
-        ? buildCards(books ?? [], files ?? [], progress ?? [], { q, saved: f === 'saved', genre: g, author: a })
+        ? buildCards(books ?? [], files ?? [], progress ?? [], { q, saved: f === 'saved', genre: g, author: a, sort: s })
         : [],
-    [loaded, books, files, progress, q, f, g, a],
+    [loaded, books, files, progress, q, f, g, a, s],
   )
-  const { visible, sentinelRef, hasMore } = useIncrementalList(cards, 40, '600px')
+  // "Truyện mới" rows only show on the plain library view; searching or filtering lists every match below.
+  const showRecentRows = q === '' && g === '' && a === '' && f === 'all'
+  const recent = useMemo(
+    () => (loaded && showRecentRows ? splitRecent(catalogCards, Date.now()) : { day: [], week: [] }),
+    [loaded, showRecentRows, catalogCards],
+  )
+  const mainCards = useMemo(() => {
+    if (recent.day.length === 0 && recent.week.length === 0) return cards
+    const hidden = new Set([...recent.day, ...recent.week].map((c) => c.book.id))
+    return cards.filter((c) => !hidden.has(c.book.id))
+  }, [cards, recent])
+  const { visible, sentinelRef, hasMore } = useIncrementalList(mainCards, 40, '600px')
 
   const cachedIds = useMemo(() => new Set((files ?? []).map((x) => x.bookId)), [files])
   const genres = useMemo(() => genreOptions(books ?? [], cachedIds), [books, cachedIds])
@@ -412,7 +424,34 @@ export function LibraryPage({ services }: LibraryPageProps) {
         </section>
       )}
 
-      {showContinue && (
+      {([['recent-day', 'Truyện mới trong ngày', recent.day], ['recent-week', 'Truyện mới trong tuần', recent.week]] as const).map(
+        ([id, title, list]) =>
+          list.length > 0 && (
+            <section key={id} aria-labelledby={`${id}-heading`} class="flex flex-col gap-2">
+              <h2 id={`${id}-heading`} class="text-fluid-lg font-semibold">
+                {title}
+              </h2>
+              <ul class="-mx-gutter flex snap-x gap-3 overflow-x-auto px-gutter pb-1 [scrollbar-width:thin]">
+                {list.map((c) => (
+                  <li key={c.book.id} class="w-28 shrink-0 snap-start sm:w-32" data-recent-item>
+                    <button
+                      type="button"
+                      data-book-id={c.book.id}
+                      aria-label={c.book.title}
+                      onClick={() => setSheetId(c.book.id)}
+                      class="flex w-full cursor-pointer flex-col gap-1.5 text-start"
+                    >
+                      <CoverImage book={{ title: c.book.title, normTitle: c.book.normTitle }} src={coverUrlOf(c.book)} />
+                      <span class="line-clamp-2 text-fluid-sm font-medium">{c.book.title}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ),
+      )}
+
+      {(showContinue || recent.day.length > 0 || recent.week.length > 0) && (
         <h2 class="-mb-1 text-fluid-lg font-semibold">Tất cả truyện</h2>
       )}
 

@@ -18,7 +18,14 @@ export interface CardFilters {
   genre: string
   /** normAuthor; '' = all. */
   author: string
+  /** Default 'newest'. */
+  sort?: SortMode
 }
+
+export type SortMode = 'newest' | 'az'
+
+export const DAY_MS = 24 * 60 * 60 * 1000
+export const WEEK_MS = 7 * DAY_MS
 
 export interface Option {
   value: string
@@ -80,7 +87,7 @@ export function authorOptions(books: Book[], cachedIds: Set<string>): Option[] {
 
 /**
  * Builds the library cards. A book is visible when it is still in Drive or has a cached file.
- * Sorted by normTitle. Search runs over normTitle + normAuthor; genre and author filter values
+ * Sorted newest first by default, or by normTitle. Search runs over normTitle + normAuthor; genre and author filter values
  * without a matching option are ignored (treated as all).
  */
 export function buildCards(
@@ -116,5 +123,26 @@ export function buildCards(
     .filter((c) => genre === '' || c.book.genres.some((g) => genreKey(g) === genre))
     .filter((c) => author === '' || c.book.normAuthor === author)
     .filter((c) => matchesQuery(`${c.book.normTitle} ${c.book.normAuthor}`, filters.q))
-    .sort((a, b) => a.book.normTitle.localeCompare(b.book.normTitle) || a.book.id.localeCompare(b.book.id))
+    .sort((a, b) => compareCards(a, b, filters.sort ?? 'newest'))
+}
+
+/** 'newest': latest EPUB time (modifiedTime) first; 'az': by normTitle. Ties fall back to title, then id. */
+function compareCards(a: CardModel, b: CardModel, sort: SortMode): number {
+  const byTitle = a.book.normTitle.localeCompare(b.book.normTitle) || a.book.id.localeCompare(b.book.id)
+  if (sort === 'az') return byTitle
+  return b.book.modifiedTime - a.book.modifiedTime || byTitle
+}
+
+/** Splits cards (already sorted newest first) into those added within a day and, separately, within a week. */
+export function splitRecent(cards: CardModel[], now: number): { day: CardModel[]; week: CardModel[] } {
+  const day: CardModel[] = []
+  const week: CardModel[] = []
+  for (const c of cards) {
+    const age = now - c.book.modifiedTime
+    if (c.book.modifiedTime <= 0 || age > WEEK_MS) continue
+    if (age <= DAY_MS) day.push(c)
+    else week.push(c)
+  }
+  const byTime = (a: CardModel, b: CardModel) => b.book.modifiedTime - a.book.modifiedTime
+  return { day: day.sort(byTime), week: week.sort(byTime) }
 }

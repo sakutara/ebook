@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Book } from '../../src/db/db'
-import { buildCards, genreOptions, authorOptions, type CardFilters } from '../../src/ui/library/library-model'
+import { buildCards, genreOptions, authorOptions, splitRecent, DAY_MS, type CardFilters } from '../../src/ui/library/library-model'
 import { normalize } from '../../src/domain/title'
 
 function book(id: string, title: string, over: Partial<Book> = {}): Book {
@@ -30,8 +30,29 @@ const F = (over: Partial<CardFilters> = {}): CardFilters => ({ q: '', saved: fal
 describe('library.grid.sorted', () => {
   it('library.grid.sorted: orders cards by normalised title', () => {
     const books = [book('1', 'Ánh Trăng'), book('2', 'Bạch Lộc'), book('3', 'an bình')]
-    const cards = buildCards(books, [], [], F())
+    const cards = buildCards(books, [], [], F({ sort: 'az' }))
     expect(cards.map((c) => c.book.title)).toEqual(['an bình', 'Ánh Trăng', 'Bạch Lộc'])
+  })
+
+  it('library.sort.newest: default order is newest EPUB time first', () => {
+    const books = [
+      book('1', 'A', { modifiedTime: 100 }),
+      book('2', 'B', { modifiedTime: 300 }),
+      book('3', 'C', { modifiedTime: 200 }),
+    ]
+    expect(buildCards(books, [], [], F()).map((c) => c.book.id)).toEqual(['2', '3', '1'])
+  })
+
+  it('library.sort.recent: splits within a day / a week, no overlap', () => {
+    const now = 10 * DAY_MS
+    const books = [
+      book('d', 'D', { modifiedTime: now - 1000 }),
+      book('w', 'W', { modifiedTime: now - 3 * DAY_MS }),
+      book('o', 'O', { modifiedTime: now - 9 * DAY_MS }),
+    ]
+    const r = splitRecent(buildCards(books, [], [], F()), now)
+    expect(r.day.map((c) => c.book.id)).toEqual(['d'])
+    expect(r.week.map((c) => c.book.id)).toEqual(['w'])
   })
 })
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks'
 import { Icon, IconButton } from '../icons/Icon'
 import { useBackClose } from '../useBackClose'
-import { author, filter, genre } from './library-state'
+import { author, filter, genre, sort } from './library-state'
 import type { Option } from './library-model'
 
 export interface FilterPanelProps {
@@ -19,6 +19,11 @@ export interface FilterPanelProps {
 const FILTERS = [
   { value: 'all', label: 'Tất cả', icon: 'filter-all' },
   { value: 'saved', label: 'Đã lưu', icon: 'filter-saved' },
+] as const
+
+const SORTS = [
+  { value: 'newest', label: 'Mới nhất' },
+  { value: 'az', label: 'A-Z' },
 ] as const
 
 const ROW =
@@ -94,6 +99,26 @@ export function FilterPanel(p: FilterPanelProps) {
               )
             })}
           </div>
+
+          <section class="flex flex-col gap-1">
+            <h3 class="eyebrow px-3 py-1 font-sans">Sắp xếp</h3>
+            <div role="radiogroup" aria-label="Sắp xếp" class="flex gap-0.5 rounded-full border border-line bg-surface-2 p-0.5">
+              {SORTS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={sort.value === o.value}
+                  onClick={() => {
+                    sort.value = o.value
+                  }}
+                  class={`inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-full px-3 text-fluid-sm font-medium transition-colors duration-150 aria-checked:bg-accent aria-checked:text-on-accent aria-checked:shadow-sm ${sort.value === o.value ? '' : 'text-ink-muted hover:text-ink'}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </section>
 
           <section class="flex flex-col gap-1">
             <button

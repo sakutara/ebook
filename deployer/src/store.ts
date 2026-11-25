@@ -368,7 +368,7 @@ export function createStore(deps: StoreDeps = {}) {
       genres: [...patch.genres],
       description: patch.description,
       ...(note !== '' ? { note } : {}),
-      updatedAt: new Date().toISOString(),
+      // updatedAt stays the EPUB's upload time: the viewer sorts by it, and a metadata edit must not reorder.
     }
     await c.put(bookKeys(id).metadata, JSON.stringify(next), { contentType: 'application/json; charset=utf-8' })
     await updateCatalog(c, (cat) => mergeEntry(cat, next, new Date()))

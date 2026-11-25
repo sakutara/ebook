@@ -6,7 +6,7 @@ import { normalize } from '../../src/domain/title'
 import { catalogStatus } from '../../src/catalog/catalog-sync'
 import { syncStatus } from '../../src/sync/sync-engine'
 import { Icon } from '../../src/ui/icons/Icon'
-import { query, filter, genre, author } from '../../src/ui/library/library-state'
+import { query, filter, genre, author, sort } from '../../src/ui/library/library-state'
 import { LibraryPage } from '../../src/ui/library/LibraryPage'
 import { SearchBar } from '../../src/ui/library/SearchBar'
 import { toast } from '../../src/ui/toast-store'
@@ -204,9 +204,11 @@ describe('app-shell.config.missing', () => {
 
 describe('library.grid.sorted (page)', () => {
   it('library.grid.sorted: renders cards in normTitle order', async () => {
+    sort.value = 'az'
     await seed([book('1', 'Ánh Trăng'), book('2', 'Bạch Lộc'), book('3', 'an bình')])
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
     await screen.findByRole('article', { name: 'an bình' })
+    sort.value = 'newest'
     expect(screen.getAllByRole('article').map((a) => a.getAttribute('aria-label'))).toEqual([
       'an bình',
       'Ánh Trăng',
