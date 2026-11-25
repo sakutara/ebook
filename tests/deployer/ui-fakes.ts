@@ -128,6 +128,7 @@ export function makeStore(
       author: 'Vong Ngữ',
       genres: [],
       description: '',
+      chapters: 12,
       language: 'vi',
       cover: null,
     }),

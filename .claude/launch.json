@@ -61,6 +61,15 @@
         "rm -rf node_modules/.vite-deployer node_modules/.vite && VITE_R2_BASE_URL=http://localhost:8787 npx vite --config vite.deployer.config.ts"
       ],
       "port": 5174
+    },
+    {
+      "name": "deployer-prod",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "rm -rf node_modules/.vite-deployer node_modules/.vite && npx vite --config vite.deployer.config.ts --port 5174 --strictPort"
+      ],
+      "port": 5174
     }
   ]
 }

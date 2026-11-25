@@ -33,6 +33,7 @@ appends `-2`, `-3`, …; re-uploading the *same* title overwrites (an update).
   "author": "Thiên Tàm Thổ Đậu",
   "genres": ["Huyền huyễn"],
   "description": "…",
+  "chapters": 1648,
   "language": "vi",
   "epub": "dau-pha-thuong-khung.epub",
   "size": 2483021,
@@ -48,6 +49,7 @@ appends `-2`, `-3`, …; re-uploading the *same* title overwrites (an update).
 | author | EPUB `dc:creator` joined with ", "; `""` when missing |
 | genres | 0..n display names; see [Genre](/domain/genre.md) |
 | description | EPUB `dc:description` with HTML stripped, max 1000 chars; `""` when missing |
+| chapters | required positive integer: OPF `<meta name="chapters">`, else counted from the content spine items by the deployer on upload (and by "Cập nhật số chương" for older books). Shown in the book popup above the description |
 | language | EPUB `dc:language` or `"vi"` |
 | epub | file name of the EPUB object inside the folder |
 | size | EPUB bytes |

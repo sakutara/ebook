@@ -6,6 +6,7 @@ export interface EpubMeta {
   author: string
   genres: string[]
   description: string
+  chapters: number
   language: string
   cover: Blob | null
 }
@@ -66,6 +67,43 @@ function plainDescription(html: string): string {
   return plain.slice(0, MAX_DESCRIPTION).trim()
 }
 
+const NON_CHAPTER_IDS = /^(cover|nav|toc|ncx|titlepage|title-page|copyright)$/i
+
+/** Chapter count from OPF text: `<meta name="chapters">` when present, else content spine items. 0 when unknown. */
+export function countChapters(opf: string): number {
+  const declared = /<meta\s+name="chapters"\s+content="(\d+)"/i.exec(opf)
+  if (declared) return Number(declared[1])
+  const spine = /<spine[\s\S]*?<\/spine>/i.exec(opf)?.[0] ?? ''
+  const ids = [...spine.matchAll(/<itemref\b[^>]*\bidref="([^"]+)"/gi)].map((m) => m[1])
+  return ids.filter((id) => !NON_CHAPTER_IDS.test(id)).length
+}
+
+async function readOpf(entries: ZipEntry[], read: (e: ZipEntry) => Promise<string>): Promise<string> {
+  const byName = new Map(entries.map((e) => [e.filename, e]))
+  const container = byName.get('META-INF/container.xml')
+  if (!container) return ''
+  const path = /full-path="([^"]+)"/.exec(await read(container))?.[1]
+  const opf = path ? byName.get(path) : undefined
+  return opf ? read(opf) : ''
+}
+
+/** Counts the chapters of an EPUB blob. Throws EpubError when it cannot be read. */
+export async function readEpubChapters(file: Blob): Promise<number> {
+  let reader: ZipReader | null = null
+  try {
+    const zip = await import('foliate-js/vendor/zip.js')
+    zip.configure({ useWebWorkers: false })
+    const zipReader: ZipReader = new zip.ZipReader(new zip.BlobReader(file))
+    reader = zipReader
+    const entries = await zipReader.getEntries()
+    return countChapters(await readOpf(entries, (e) => e.getData(new zip.TextWriter()) as Promise<string>))
+  } catch {
+    throw new EpubError()
+  } finally {
+    await reader?.close?.().catch(() => undefined)
+  }
+}
+
 /** Reads OPF metadata and cover from an EPUB file. Any zip or parse failure throws EpubError. */
 export async function readEpubMeta(file: File): Promise<EpubMeta> {
   let reader: ZipReader | null = null
@@ -100,8 +138,10 @@ export async function readEpubMeta(file: File): Promise<EpubMeta> {
     const description = plainDescription(text(m.description))
     const language = text(list(m.language)[0]).trim() || 'vi'
     const cover = (await book.getCover()) ?? null
+    const opf = await readOpf(entries, (entry) => entry.getData(new zip.TextWriter()) as Promise<string>)
+    const chapters = countChapters(opf)
 
-    return { title, author, genres, description, language, cover }
+    return { title, author, genres, description, chapters, language, cover }
   } catch {
     throw new EpubError()
   } finally {

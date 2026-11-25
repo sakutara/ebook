@@ -9,7 +9,7 @@ export interface SyncedRecord { id: string; updatedAt: number; deleted: 0 | 1 }
 
 export interface Book {
   id: string; name: string; title: string; normTitle: string;
-  author: string; normAuthor: string; genres: string[]; description: string; note?: string;
+  author: string; normAuthor: string; genres: string[]; description: string; chapters?: number; note?: string;
   size: number; modifiedTime: number; md5: string; inDrive: 0 | 1; lastSeenAt: number; updatedAt: number
 }
 

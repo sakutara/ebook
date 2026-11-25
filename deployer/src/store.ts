@@ -3,7 +3,7 @@ import { titleFromName } from '../../src/domain/title'
 import { AdminError, createAdminClient, type AdminClient } from './admin-client'
 import { mergeEntry, removeEntry, updateCatalog } from './catalog-merge'
 import { applyTitleEdit, canUpload, computeStatus, conflictTitle, reviewDraft, suggestSlug, type Draft } from './draft'
-import { EpubError, readEpubMeta, type EpubMeta } from './epub-meta'
+import { EpubError, readEpubChapters, readEpubMeta, type EpubMeta } from './epub-meta'
 import { makeCover as defaultMakeCover } from './cover-jpeg'
 import { md5Hex } from './md5'
 import { bookKeys, runUpload } from './upload-queue'
@@ -34,6 +34,8 @@ type KeyValueStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 export interface StoreDeps {
   createClient?: (baseUrl: string, token: string) => AdminClient
   readMeta?: (file: File) => Promise<EpubMeta>
+  /** Chapter count of a downloaded EPUB, for the backfill. */
+  countChapters?: (epub: Blob) => Promise<number>
   md5?: (blob: Blob) => Promise<string>
   makeCover?: (cover: Blob | null, title: string, author: string) => Promise<{ blob: Blob; generated: boolean }>
   storage?: KeyValueStorage
@@ -71,6 +73,7 @@ function newDraft(file: File): Draft {
     author: '',
     genres: [],
     description: '',
+    chapters: 0,
     note: '',
     language: 'vi',
     slug: '',
@@ -100,6 +103,7 @@ async function runPool<T>(items: T[], limit: number, work: (item: T) => Promise<
 export function createStore(deps: StoreDeps = {}) {
   const createClient = deps.createClient ?? ((baseUrl, token) => createAdminClient(baseUrl, token))
   const readMeta = deps.readMeta ?? readEpubMeta
+  const countEpub = deps.countChapters ?? readEpubChapters
   const md5 = deps.md5 ?? ((blob: Blob) => md5Hex(blob))
   const makeCover = deps.makeCover ?? ((cover, title, author) => defaultMakeCover(cover, title, author))
   const storage = deps.storage ?? defaultStorage()
@@ -215,6 +219,7 @@ export function createStore(deps: StoreDeps = {}) {
     try {
       const hash = await md5(file)
       const meta = await readMeta(file)
+      if (!(meta.chapters > 0)) throw new Error('Không đếm được số chương trong EPUB')
       const { blob, generated } = await makeCover(meta.cover, meta.title, meta.author)
       // Synchronous from here to the write, so two drafts parsed together cannot pick one slug.
       const current = drafts.value.find((d) => d.key === key)
@@ -232,6 +237,7 @@ export function createStore(deps: StoreDeps = {}) {
         author: meta.author,
         genres: meta.genres,
         description: meta.description,
+        chapters: meta.chapters,
         language: meta.language,
         slug,
         slugEdited: false,
@@ -375,6 +381,34 @@ export function createStore(deps: StoreDeps = {}) {
     await refreshCatalog()
   }
 
+  /**
+   * Downloads the EPUB of every published book without a chapter count, counts its chapters and
+   * rewrites its metadata.json. The catalog is updated once at the end. Returns the number updated.
+   */
+  async function backfillChapters(onProgress?: (done: number, total: number) => void): Promise<number> {
+    const c = requireClient()
+    const base = conn.value.baseUrl.replace(/\/+$/, '')
+    const todo = catalog.value.filter((b) => typeof b.chapters !== 'number' || b.chapters <= 0)
+    const updated: Metadata[] = []
+    for (const [i, book] of todo.entries()) {
+      const epubUrl = `${base}/${bookKeys(book.id).epub.split('/').map(encodeURIComponent).join('/')}`
+      const res = await fetchFn(epubUrl, { cache: 'no-store' })
+      if (!res.ok) throw new Error(`Không tải được ${book.id} (${res.status})`)
+      const chapters = await countEpub(await res.blob())
+      if (chapters > 0) {
+        const next: Metadata = { ...book, chapters }
+        await c.put(bookKeys(book.id).metadata, JSON.stringify(next), { contentType: 'application/json; charset=utf-8' })
+        updated.push(next)
+      }
+      onProgress?.(i + 1, todo.length)
+    }
+    if (updated.length > 0) {
+      await updateCatalog(c, (cat) => updated.reduce((acc, m) => mergeEntry(acc, m, new Date()), cat))
+      await refreshCatalog()
+    }
+    return updated.length
+  }
+
   async function rebuildCatalog(onProgress?: (done: number, total: number) => void): Promise<void> {
     const c = requireClient()
     const metaKeys: string[] = []
@@ -415,6 +449,7 @@ export function createStore(deps: StoreDeps = {}) {
     deleteBook,
     updateBook,
     rebuildCatalog,
+    backfillChapters,
   }
 }
 

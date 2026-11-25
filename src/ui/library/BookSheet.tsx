@@ -95,10 +95,14 @@ export function BookSheet(p: BookSheetProps) {
           </p>
         )}
 
+        {book.chapters !== undefined && (
+          <p class="mt-3 text-fluid-sm font-medium text-ink">{`${book.chapters.toLocaleString('vi-VN')} chương`}</p>
+        )}
+
         {book.description.trim() !== '' && (
           <p
             aria-label="Mô tả"
-            class="mt-3 max-h-40 overflow-y-auto whitespace-pre-line text-fluid-sm leading-relaxed text-ink-muted"
+            class="mt-1 max-h-40 overflow-y-auto whitespace-pre-line text-fluid-sm leading-relaxed text-ink-muted"
           >
             {book.description.trim()}
           </p>

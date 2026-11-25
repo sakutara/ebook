@@ -78,12 +78,34 @@ export function PublishedTab({ store = defaultStore }: PublishedTabProps) {
     }
   }
 
+  async function backfill() {
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    setProgress(null)
+    try {
+      const n = await store.backfillChapters((done, total) => setProgress({ done, total }))
+      setNotice(`Đã cập nhật số chương cho ${n} truyện`)
+    } catch (e) {
+      setError(messageOf(e))
+    } finally {
+      setProgress(null)
+      setBusy(false)
+    }
+  }
+
   return (
     <section aria-labelledby="published-heading" class="grid gap-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 id="published-heading" class="font-serif text-fluid-lg font-semibold">
           {`Đã đăng · ${books.length} truyện`}
         </h2>
+        <IconTextButton
+          icon="update"
+          label="Cập nhật số chương"
+          disabled={!connected || busy}
+          onClick={() => void backfill()}
+        />
         <IconTextButton
           icon="refresh"
           label="Dựng lại catalog"
@@ -154,7 +176,7 @@ export function PublishedTab({ store = defaultStore }: PublishedTabProps) {
               <p class="truncate font-serif text-fluid-base font-semibold">{book.title}</p>
               <p class="truncate text-fluid-sm text-ink-muted">{book.author}</p>
               {book.genres.length > 0 && <p class="text-fluid-sm text-ink-muted">{book.genres.join(', ')}</p>}
-              <p class="text-fluid-sm tabular-nums text-ink-muted">{formatMb(book.size)}</p>
+              <p class="text-fluid-sm tabular-nums text-ink-muted">{book.chapters ? `${book.chapters} chương · ${formatMb(book.size)}` : formatMb(book.size)}</p>
             </div>
             <div class="flex shrink-0 flex-col gap-1">
               <IconTextButton icon="update" label="Sửa" disabled={!connected || busy} onClick={() => setEditing(book)} />

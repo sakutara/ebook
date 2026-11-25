@@ -8,6 +8,8 @@ export interface Metadata {
   author: string
   genres: string[]
   description: string
+  /** Number of chapters in the EPUB: OPF `chapters` meta, else counted by the deployer. */
+  chapters: number
   /** Owner's note shown in the reader popup. Omitted when empty. */
   note?: string
   language: string

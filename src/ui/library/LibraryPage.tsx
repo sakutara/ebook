@@ -408,7 +408,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
       {showContinue && (
         <section aria-labelledby="continue-heading" class="flex flex-col gap-2">
           <h2 id="continue-heading" class="text-fluid-lg font-semibold">
-            Đọc tiếp
+            {`Đọc tiếp (${continueCards.length})`}
           </h2>
           <ul class="-mx-gutter flex snap-x gap-3 overflow-x-auto px-gutter pb-1 [scrollbar-width:none]">
             {continueCards.map((c) => (
@@ -446,7 +446,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
           list.length > 0 && (
             <section key={id} aria-labelledby={`${id}-heading`} class="flex flex-col gap-2">
               <h2 id={`${id}-heading`} class="text-fluid-lg font-semibold">
-                {title}
+                {`${title} (${list.length})`}
               </h2>
               <ul class="-mx-gutter flex snap-x gap-3 overflow-x-auto px-gutter pb-1 [scrollbar-width:thin]">
                 {list.map((c) => (

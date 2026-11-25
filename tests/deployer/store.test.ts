@@ -93,7 +93,7 @@ function epubFile(name: string): File {
 }
 
 function fakeMeta(title: string): EpubMeta {
-  return { title, author: 'Vong Ngữ', genres: [], description: '', language: 'vi', cover: null }
+  return { title, author: 'Vong Ngữ', genres: [], description: '', chapters: 12, language: 'vi', cover: null }
 }
 
 /** Store wired to a fake Worker; md5 and cover are constant, readMeta uses the file name. */

@@ -809,7 +809,7 @@ describe('library.continue', () => {
       [{ ...progressRow('a', 0.2), updatedAt: 10 }, { ...progressRow('b', 0.5), updatedAt: 20 }, progressRow('c', 1)],
     )
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
-    const region = await screen.findByRole('region', { name: 'Đọc tiếp' })
+    const region = await screen.findByRole('region', { name: 'Đọc tiếp (2)' })
     const items = within(region).getAllByRole('button', { name: /^Đọc tiếp/ })
     expect(items.map((b) => b.getAttribute('aria-label'))).toEqual(['Đọc tiếp Bản b', 'Đọc tiếp Bản a'])
 
@@ -825,7 +825,7 @@ describe('library.continue', () => {
       [{ ...progressRow('a', 0.2), updatedAt: 10 }, { ...progressRow('b', 0.5), updatedAt: 20 }],
     )
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
-    const region = await screen.findByRole('region', { name: 'Đọc tiếp' })
+    const region = await screen.findByRole('region', { name: 'Đọc tiếp (2)' })
     fireEvent.click(within(region).getByRole('button', { name: 'Đọc tiếp Bản b' }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xoá lịch sử đọc' }))
 
@@ -852,10 +852,10 @@ describe('library.continue.dedupe', () => {
       [progressRow('a', 0.4), progressRow('c', 0.3)],
     )
     render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
-    await screen.findByRole('region', { name: 'Đọc tiếp' })
+    await screen.findByRole('region', { name: 'Đọc tiếp (2)' })
 
-    expect(screen.queryByRole('region', { name: 'Truyện mới trong tuần' })).toBeNull()
-    const day = screen.getByRole('region', { name: 'Truyện mới trong ngày' })
+    expect(screen.queryByRole('region', { name: /^Truyện mới trong tuần/ })).toBeNull()
+    const day = screen.getByRole('region', { name: 'Truyện mới trong ngày (1)' })
     expect(within(day).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Bản b'])
     expect(screen.queryAllByRole('article')).toHaveLength(0)
   })

@@ -15,6 +15,7 @@ export interface Draft {
   author: string
   genres: string[]
   description: string
+  chapters: number
   note: string
   language: string
   slug: string
@@ -108,6 +109,7 @@ export function toMetadata(draft: Draft, now: Date): Metadata {
     author: draft.author,
     genres: [...draft.genres],
     description: draft.description,
+    chapters: draft.chapters,
     ...(note !== '' ? { note } : {}),
     language: draft.language,
     epub: `${draft.slug}.epub`,

@@ -50,3 +50,20 @@ describe('deployer.extract.broken', () => {
     expect((err as Error).message).toBe('không đọc được EPUB')
   })
 })
+
+import { countChapters } from '../../deployer/src/epub-meta'
+
+describe('countChapters', () => {
+  const spine = (ids: string[]) =>
+    `<package><metadata></metadata><spine>${ids.map((i) => `<itemref idref="${i}"/>`).join('')}</spine></package>`
+
+  it('prefers the declared chapters meta', () => {
+    expect(countChapters('<metadata><meta name="chapters" content="1648"/></metadata>' + spine(['c1']))).toBe(1648)
+  })
+  it('counts spine items without cover and nav', () => {
+    expect(countChapters(spine(['cover', 'nav', 'c1', 'c2', 'c3']))).toBe(3)
+  })
+  it('returns 0 when there is no spine', () => {
+    expect(countChapters('')).toBe(0)
+  })
+})
