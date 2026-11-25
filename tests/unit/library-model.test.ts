@@ -110,7 +110,7 @@ describe('library.filter.genre', () => {
     book('5', 'Truyện 5', { genres: ['Khoa huyễn', 'Tiên hiệp'] }),
   ]
 
-  it('library.filter.genre: chip options are known genres in fixed order with their counts', () => {
+  it('library.filter.genre: options are sorted by book count, highest first', () => {
     expect(genreOptions(books, new Set())).toEqual([
       { value: 'tien hiep', label: 'Tiên hiệp', count: 3 },
       { value: 'huyen huyen', label: 'Huyền huyễn', count: 2 },
@@ -129,7 +129,7 @@ describe('library.filter.genre', () => {
 })
 
 describe('library.filter.genre-other', () => {
-  it('library.filter.genre-other: other genres follow the known ones, sorted by key, without empty known genres', () => {
+  it('library.filter.genre-other: equal counts are ordered by key', () => {
     const books = [
       book('1', 'Truyện 1', { genres: ['Tiên hiệp'] }),
       book('2', 'Truyện 2', { genres: ['Huyền huyễn'] }),
@@ -137,10 +137,10 @@ describe('library.filter.genre-other', () => {
       book('4', 'Truyện 4', { genres: ['Dị giới'] }),
     ]
     expect(genreOptions(books, new Set()).map((o) => o.label)).toEqual([
-      'Tiên hiệp',
-      'Huyền huyễn',
       'Dị giới',
       'Đô thị',
+      'Huyền huyễn',
+      'Tiên hiệp',
     ])
   })
 
@@ -150,7 +150,7 @@ describe('library.filter.genre-other', () => {
       book('2', 'Truyện 2', { genres: ['Khoa huyễn'], inDrive: 0 }),
     ]
     expect(genreOptions(books, new Set()).map((o) => o.value)).toEqual(['tien hiep'])
-    expect(genreOptions(books, new Set(['2'])).map((o) => o.value)).toEqual(['tien hiep', 'khoa huyen'])
+    expect(genreOptions(books, new Set(['2'])).map((o) => o.value)).toEqual(['khoa huyen', 'tien hiep'])
   })
 
   it('library.filter.genre-other: an other genre filters by its key', () => {
@@ -167,7 +167,7 @@ describe('library.filter.author', () => {
     book('4', 'Truyện 4'),
   ]
 
-  it('library.filter.author: options are non-empty authors sorted by normAuthor with counts', () => {
+  it('library.filter.author: options are non-empty authors sorted by book count, highest first, with counts', () => {
     expect(authorOptions(books, new Set())).toEqual([
       { value: 'nhi can', label: 'Nhĩ Căn', count: 2 },
       { value: 'vong ngu', label: 'Vong Ngữ', count: 1 },

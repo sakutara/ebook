@@ -451,7 +451,7 @@ export function LibraryPage({ services }: LibraryPageProps) {
           ),
       )}
 
-      {(showContinue || recent.day.length > 0 || recent.week.length > 0) && (
+      {mainCards.length > 0 && (showContinue || recent.day.length > 0 || recent.week.length > 0) && (
         <h2 class="-mb-1 text-fluid-lg font-semibold">Tất cả truyện</h2>
       )}
 

@@ -651,6 +651,40 @@ describe('library.filter.a11y', () => {
   })
 })
 
+describe('library.filter.genre-quick', () => {
+  it('library.filter.genre-quick: typing narrows the genre list, ignoring diacritics', async () => {
+    await seed([
+      book('1', 'Truyện 1', { genres: ['Tiên hiệp'] }),
+      book('2', 'Truyện 2', { genres: ['Huyền huyễn'] }),
+    ])
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    await screen.findByRole('article', { name: 'Truyện 1' })
+
+    fireEvent.input(screen.getByRole('searchbox', { name: 'Lọc thể loại' }), { target: { value: 'huyen' } })
+    const group = screen.getByRole('radiogroup', { name: 'Thể loại' })
+    expect(within(group).getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      'Tất cả thể loại',
+      'Huyền huyễn 1',
+    ])
+  })
+})
+
+describe('library.filter.author-quick', () => {
+  it('library.filter.author-quick: typing narrows the author list, ignoring diacritics', async () => {
+    await seed([
+      book('1', 'Truyện 1', { author: 'Nhĩ Căn', normAuthor: 'nhi can' }),
+      book('2', 'Truyện 2', { author: 'Vong Ngữ', normAuthor: 'vong ngu' }),
+    ])
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    await screen.findByRole('article', { name: 'Truyện 1' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tác giả' }))
+    fireEvent.input(screen.getByRole('searchbox', { name: 'Lọc tác giả' }), { target: { value: 'vong' } })
+    const group = screen.getByRole('radiogroup', { name: 'Tác giả' })
+    expect(within(group).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Mọi tác giả', 'Vong Ngữ 1'])
+  })
+})
+
 describe('library.filter.offline', () => {
   it('library.filter.offline: changing genre and author offline updates the list with no request', async () => {
     await seed([

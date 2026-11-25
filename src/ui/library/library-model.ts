@@ -1,7 +1,7 @@
 import type { Book, BookFile, Progress } from '../../db/db'
 import { isStale } from '../../cache/book-cache'
 import { matchesQuery } from '../../domain/title'
-import { KNOWN_GENRES, genreKey } from '../../domain/genre'
+import { genreKey } from '../../domain/genre'
 
 export interface CardModel {
   book: Book
@@ -40,7 +40,7 @@ function isListable(book: Book, cachedIds: Set<string>): boolean {
   return cachedIds.has(book.id) || book.inDrive === 1
 }
 
-/** Genre chip options: known genres first (fixed order), then the others sorted by key. Empty genres are omitted. */
+/** Genre options: most books first; ties by key. Empty genres are omitted. */
 export function genreOptions(books: Book[], cachedIds: Set<string>): Option[] {
   const counts = new Map<string, { label: string; count: number }>()
   for (const book of books) {
@@ -55,23 +55,12 @@ export function genreOptions(books: Book[], cachedIds: Set<string>): Option[] {
       else counts.set(key, { label: name, count: 1 })
     }
   }
-
-  const known = KNOWN_GENRES.map((name) => ({ value: genreKey(name), label: name }))
-  const knownKeys = new Set(known.map((k) => k.value))
-  const options: Option[] = []
-  for (const k of known) {
-    const entry = counts.get(k.value)
-    if (entry) options.push({ value: k.value, label: k.label, count: entry.count })
-  }
-  const others = [...counts.keys()].filter((key) => !knownKeys.has(key)).sort()
-  for (const key of others) {
-    const entry = counts.get(key)!
-    options.push({ value: key, label: entry.label, count: entry.count })
-  }
-  return options
+  return [...counts.entries()]
+    .map(([value, e]) => ({ value, label: e.label, count: e.count }))
+    .sort((x, y) => y.count - x.count || (x.value < y.value ? -1 : x.value > y.value ? 1 : 0))
 }
 
-/** Author select options: non-empty normAuthor values among listable books, sorted by value. */
+/** Author options: non-empty normAuthor values among listable books, most books first; ties by value. */
 export function authorOptions(books: Book[], cachedIds: Set<string>): Option[] {
   const byValue = new Map<string, { label: string; count: number }>()
   for (const book of books) {
@@ -80,9 +69,9 @@ export function authorOptions(books: Book[], cachedIds: Set<string>): Option[] {
     if (entry) entry.count += 1
     else byValue.set(book.normAuthor, { label: book.author, count: 1 })
   }
-  return [...byValue.keys()]
-    .sort()
-    .map((value) => ({ value, label: byValue.get(value)!.label, count: byValue.get(value)!.count }))
+  return [...byValue.entries()]
+    .map(([value, e]) => ({ value, label: e.label, count: e.count }))
+    .sort((x, y) => y.count - x.count || (x.value < y.value ? -1 : x.value > y.value ? 1 : 0))
 }
 
 /**

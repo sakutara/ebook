@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks'
 import { Icon, IconButton } from '../icons/Icon'
+import { matchesQuery } from '../../domain/title'
 import { useBackClose } from '../useBackClose'
 import { author, filter, genre, sort } from './library-state'
 import type { Option } from './library-model'
@@ -49,6 +50,12 @@ export function FilterPanel(p: FilterPanelProps) {
   const f = filter.value
   // Open from the start when an author is already chosen, so the choice is visible.
   const [authorOpen, setAuthorOpen] = useState(p.authorValue !== '')
+  const [authorQuery, setAuthorQuery] = useState('')
+  // Authors matching the quick filter; the chosen author always stays listed.
+  const shownAuthors = p.authors.filter((o) => o.value === p.authorValue || matchesQuery(o.value, authorQuery))
+  const [genreQuery, setGenreQuery] = useState('')
+  // Options whose name matches the quick filter; the chosen genre always stays listed.
+  const shownGenres = p.genres.filter((o) => o.value === p.genreValue || matchesQuery(o.value, genreQuery))
   const selectedAuthor = p.authors.find((o) => o.value === p.authorValue)
 
   useBackClose(p.open, p.onClose)
@@ -142,6 +149,17 @@ export function FilterPanel(p: FilterPanelProps) {
               </span>
             </button>
             {authorOpen && (
+              <input
+                type="search"
+                aria-label="Lọc tác giả"
+                placeholder="Gõ để lọc tác giả"
+                autocomplete="off"
+                value={authorQuery}
+                onInput={(e) => setAuthorQuery((e.currentTarget as HTMLInputElement).value)}
+                class="mx-1 min-h-10 rounded-full border border-line bg-surface px-4 text-fluid-sm outline-none focus:border-accent"
+              />
+            )}
+            {authorOpen && (
               <div
                 id="filter-authors"
                 role="radiogroup"
@@ -159,7 +177,7 @@ export function FilterPanel(p: FilterPanelProps) {
                 >
                   <span>Mọi tác giả</span>
                 </button>
-                {p.authors.map((o) => {
+                {shownAuthors.map((o) => {
                   const on = p.authorValue === o.value
                   return (
                     <button
@@ -182,6 +200,15 @@ export function FilterPanel(p: FilterPanelProps) {
 
           <section class="flex flex-col gap-1">
             <h3 class="eyebrow px-3 py-1 font-sans">Thể loại</h3>
+            <input
+              type="search"
+              aria-label="Lọc thể loại"
+              placeholder="Gõ để lọc thể loại"
+              autocomplete="off"
+              value={genreQuery}
+              onInput={(e) => setGenreQuery((e.currentTarget as HTMLInputElement).value)}
+              class="mx-1 min-h-10 rounded-full border border-line bg-surface px-4 text-fluid-sm outline-none focus:border-accent"
+            />
             <div role="radiogroup" aria-label="Thể loại" class="flex flex-col gap-0.5">
               <button
                 type="button"
@@ -194,7 +221,7 @@ export function FilterPanel(p: FilterPanelProps) {
               >
                 <span>Tất cả thể loại</span>
               </button>
-              {p.genres.map((o) => {
+              {shownGenres.map((o) => {
                 const on = p.genreValue === o.value
                 return (
                   <button
