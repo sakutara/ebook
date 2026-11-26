@@ -52,5 +52,7 @@ export function prefsCss(p: ReaderPrefs): string {
   return [
     `html { font-size: ${Math.round(p.fontScale * 100)}% !important; line-height: ${p.lineHeight} !important; color: ${fg} !important; background: ${bg} !important; }`,
     `a:any-link { color: ${fg} !important; }`,
+    // No text selection (or iOS long-press callout) while reading: it only distracts.
+    `html, body, body * { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; }`,
   ].join('\n')
 }

@@ -53,4 +53,10 @@ describe('reader prefs', () => {
     )
     expect(css).toContain(`a:any-link { color: ${fg} !important; }`)
   })
+
+  it('prefs: prefsCss disables text selection in the book', () => {
+    const css = prefsCss(DEFAULT_PREFS)
+    expect(css).toContain('user-select: none !important')
+    expect(css).toContain('-webkit-touch-callout: none !important')
+  })
 })

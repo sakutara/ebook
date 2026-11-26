@@ -344,7 +344,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
   }
 
   return (
-    <div class="fixed inset-0 flex bg-[var(--reader-bg)] text-[var(--reader-fg)]" style={cssVars}>
+    <div class="fixed inset-0 flex select-none [-webkit-touch-callout:none] bg-[var(--reader-bg)] text-[var(--reader-fg)]" style={cssVars}>
       <aside
         aria-label="Mục lục"
         class="hidden w-80 shrink-0 overflow-y-auto border-e border-current/10 p-gutter lg:block"
