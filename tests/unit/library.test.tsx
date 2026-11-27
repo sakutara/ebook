@@ -847,6 +847,7 @@ describe('library.continue.dedupe', () => {
         book('a', 'Bản a', { modifiedTime: now - 1000 }),
         book('b', 'Bản b', { modifiedTime: now - 2000 }),
         book('c', 'Bản c', { modifiedTime: 100 }),
+        book('d', 'Bản d', { modifiedTime: 100 }),
       ],
       [],
       [progressRow('a', 0.4), progressRow('c', 0.3)],
@@ -857,7 +858,39 @@ describe('library.continue.dedupe', () => {
     expect(screen.queryByRole('region', { name: /^Truyện mới trong tuần/ })).toBeNull()
     const day = screen.getByRole('region', { name: 'Truyện mới trong ngày (1)' })
     expect(within(day).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Bản b'])
-    expect(screen.queryAllByRole('article')).toHaveLength(0)
+    expect(screen.getAllByRole('article').map((el) => el.getAttribute('data-book-id'))).toEqual(['d'])
+  })
+})
+
+describe('library.recent.fallback', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const ids = (els: HTMLElement[]) => els.map((el) => el.getAttribute('data-book-id'))
+  const row = (name: RegExp) => screen.queryByRole('region', { name })
+  const show = async (ages: Record<string, number>) => {
+    const now = Date.now()
+    await seed(Object.entries(ages).map(([id, age]) => book(id, `Bản ${id}`, { modifiedTime: now - age })))
+    render(<LibraryPage services={makeServices({ config: true, source: true }) as any} />)
+    await waitFor(() => expect(screen.queryAllByRole('article').length).toBeGreaterThan(0))
+  }
+
+  it('library.recent.fallback: both rows show while older books remain for the main list', async () => {
+    await show({ a: 1000, b: 2 * DAY, c: 30 * DAY })
+    expect(row(/^Truyện mới trong ngày/)).not.toBeNull()
+    expect(row(/^Truyện mới trong tuần/)).not.toBeNull()
+    expect(ids(screen.getAllByRole('article'))).toEqual(['c'])
+  })
+
+  it('library.recent.fallback: an empty main list drops the week row and lists its books', async () => {
+    await show({ a: 1000, b: 3 * DAY, c: 2 * DAY })
+    expect(row(/^Truyện mới trong ngày/)).not.toBeNull()
+    expect(row(/^Truyện mới trong tuần/)).toBeNull()
+    expect(ids(screen.getAllByRole('article'))).toEqual(['c', 'b'])
+  })
+
+  it('library.recent.fallback: still empty without the week row, so the day row is dropped too', async () => {
+    await show({ a: 2000, b: 1000 })
+    expect(row(/^Truyện mới trong/)).toBeNull()
+    expect(ids(screen.getAllByRole('article'))).toEqual(['b', 'a'])
   })
 })
 

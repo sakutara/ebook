@@ -34,3 +34,6 @@
 
 ## 2026-11-27 — Collapsible TOC
 - The wide-screen TOC side panel can be hidden and shown; the choice is remembered ([Reader](/ui/reader.md)).
+
+## 2026-11-28 — Recent rows never empty the main list
+- If "Truyện mới trong ngày" / "trong tuần" would leave "Tất cả truyện" empty, the week row is dropped first, then the day row; their books are listed in the main list, newest upload first. Books in "Đọc tiếp" do not count towards the main list.

@@ -160,16 +160,23 @@ export function LibraryPage({ services }: LibraryPageProps) {
     () => new Set(showContinue ? continueCards.map((c) => c.book.id) : []),
     [showContinue, continueCards],
   )
-  const recent = useMemo(() => {
-    if (!loaded || !showRecentRows) return { day: [], week: [] }
-    const r = splitRecent(catalogCards, Date.now())
-    return { day: r.day.filter((c) => !continueIds.has(c.book.id)), week: r.week.filter((c) => !continueIds.has(c.book.id)) }
-  }, [loaded, showRecentRows, catalogCards, continueIds])
-  const mainCards = useMemo(() => {
-    const hidden = new Set([...recent.day, ...recent.week].map((c) => c.book.id))
-    for (const id of continueIds) hidden.add(id)
-    return hidden.size === 0 ? cards : cards.filter((c) => !hidden.has(c.book.id))
-  }, [cards, recent, continueIds])
+  // The recent rows must not empty the main list: if nothing would be left for it, the week row is
+  // dropped (its books return to the list), and if it is still empty, the day row is dropped too.
+  const { recent, mainCards } = useMemo(() => {
+    const split = loaded && showRecentRows ? splitRecent(catalogCards, Date.now()) : { day: [], week: [] }
+    const unread = (list: CardModel[]) => list.filter((c) => !continueIds.has(c.book.id))
+    const day = unread(split.day)
+    const week = unread(split.week)
+    const without = (rows: CardModel[]) => {
+      const hidden = new Set(rows.map((c) => c.book.id))
+      return unread(cards).filter((c) => !hidden.has(c.book.id))
+    }
+    let main = without([...day, ...week])
+    if (main.length > 0) return { recent: { day, week }, mainCards: main }
+    main = without(day)
+    if (main.length > 0) return { recent: { day, week: [] }, mainCards: main }
+    return { recent: { day: [], week: [] }, mainCards: without([]) }
+  }, [loaded, showRecentRows, catalogCards, cards, continueIds])
   const { visible, sentinelRef, hasMore } = useIncrementalList(mainCards, 40, '600px')
 
   const cachedIds = useMemo(() => new Set((files ?? []).map((x) => x.bookId)), [files])
