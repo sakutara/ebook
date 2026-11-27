@@ -31,3 +31,6 @@
 - Updated [Story request](/domain/story-request.md), [storyRequests](/data/story-requests.md),
   decision [0007](/decisions/0007-google-form-write-only-sink.md); added
   [Sheet de-duplication](/playbooks/sheet-dedupe.md).
+
+## 2026-11-27 — Collapsible TOC
+- The wide-screen TOC side panel can be hidden and shown; the choice is remembered ([Reader](/ui/reader.md)).

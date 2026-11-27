@@ -118,7 +118,7 @@ export async function frameStyle(page: Page): Promise<{ fontSize: number; bg: st
 }
 
 /**
- * Picks a TOC entry. The desktop aside is always visible on wide screens; on narrow screens the
+ * Picks a TOC entry. The desktop aside is visible on wide screens unless hidden; on narrow screens the
  * entry lives in the full-screen sheet opened from the chrome.
  */
 export async function goToTocEntry(page: Page, label: string): Promise<void> {

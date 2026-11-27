@@ -37,7 +37,7 @@ The reader SHALL page with taps (left 30 % previous, right 30 % next, middle tog
 - **THEN** the top and bottom bars appear, and a second tap hides them
 
 ### Requirement: Table of contents
-The reader SHALL show the book's TOC; selecting an entry SHALL go to it and close the TOC on narrow viewports.
+The reader SHALL show the book's TOC; selecting an entry SHALL go to it and close the TOC on narrow viewports. On wide viewports the reader SHALL let the user hide and show the TOC side panel and SHALL remember that choice on the device.
 
 #### Scenario: reader.toc.go
 - **WHEN** the user opens the TOC and selects "Chương 5"
@@ -50,6 +50,15 @@ The reader SHALL show the book's TOC; selecting an entry SHALL go to it and clos
 #### Scenario: reader.layout.wide
 - **WHEN** the viewport is 1280 px wide
 - **THEN** the TOC is a side panel next to the text and the text column is at most 40 rem wide
+
+#### Scenario: reader.toc.collapse
+- **WHEN** the user closes the TOC side panel on a 1280 px viewport
+- **THEN** the text area takes the full width at the same position, and the top bar button brings the panel back
+
+#### Scenario: reader.toc.remember
+- **GIVEN** the user hid the side panel
+- **WHEN** a book is opened again
+- **THEN** the panel stays hidden
 
 ### Requirement: Reading preferences
 The reader SHALL offer font size 80–160 % in 10 % steps, line height 1.4 / 1.6 / 1.8 and theme Sáng / Sepia / Tối, apply them immediately, and persist them in `settings` key `reader.prefs` (defaults 100 %, 1.6, Sáng) so they apply to every book offline.

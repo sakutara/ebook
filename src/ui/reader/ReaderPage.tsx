@@ -48,6 +48,8 @@ type View =
 type Sheet = null | 'toc' | 'prefs'
 
 const HINT_KEY = 'reader.tapHintSeen'
+/** Set while the reader has hidden the TOC side panel on wide screens. */
+const TOC_HIDDEN_KEY = 'reader.tocHidden'
 /** How long the controls stay up after the book opens, before they fade out. */
 const CHROME_INTRO_MS = 3500
 
@@ -56,6 +58,14 @@ function hintSeen(): boolean {
     return localStorage.getItem(HINT_KEY) === '1'
   } catch {
     return true
+  }
+}
+
+function tocHidden(): boolean {
+  try {
+    return localStorage.getItem(TOC_HIDDEN_KEY) === '1'
+  } catch {
+    return false
   }
 }
 
@@ -84,6 +94,7 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
   prefsRef.current = prefs
   const [chrome, setChrome] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
+  const [tocOpen, setTocOpen] = useState(() => !tocHidden())
   const [hint, setHint] = useState(false)
   const introTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -320,6 +331,18 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
     }
   }, [id, attempt])
 
+  const toggleToc = (open: boolean): void => {
+    // The controls were just used: do not let the intro timer pull them away.
+    clearTimeout(introTimer.current)
+    setTocOpen(open)
+    try {
+      if (open) localStorage.removeItem(TOC_HIDDEN_KEY)
+      else localStorage.setItem(TOC_HIDDEN_KEY, '1')
+    } catch {
+      // Storage unavailable: the choice lasts until the book is closed.
+    }
+  }
+
   const back = (): void => {
     if (p.onBack) p.onBack()
     else goBack('#/')
@@ -345,12 +368,20 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
 
   return (
     <div class="fixed inset-0 flex select-none [-webkit-touch-callout:none] bg-[var(--reader-bg)] text-[var(--reader-fg)]" style={cssVars}>
-      <aside
-        aria-label="Mục lục"
-        class="hidden w-80 shrink-0 overflow-y-auto border-e border-current/10 p-gutter lg:block"
-      >
-        <TocPanel variant="panel" toc={toc} onSelect={goTo} disabled={view.kind !== 'ready'} />
-      </aside>
+      {tocOpen && (
+        <aside
+          aria-label="Mục lục"
+          class="hidden w-80 shrink-0 flex-col border-e border-current/10 lg:flex"
+        >
+          <TocPanel
+            variant="panel"
+            toc={toc}
+            onSelect={goTo}
+            onClose={() => toggleToc(false)}
+            disabled={view.kind !== 'ready'}
+          />
+        </aside>
+      )}
 
       <div ref={containerRef} class="relative flex-1 min-h-dvh">
         {view.kind === 'loading' && (
@@ -444,6 +475,8 @@ export function ReaderPage(p: { id: string } & ReaderDeps) {
             fraction={loc.fraction}
             onBack={back}
             onToc={() => setSheet('toc')}
+            tocOpen={tocOpen}
+            onToggleToc={() => toggleToc(!tocOpen)}
             onPrefs={() => setSheet('prefs')}
             onSeek={seek}
           />

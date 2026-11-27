@@ -6,7 +6,11 @@ export interface ReaderChromeProps {
   sectionLabel: string
   fraction: number
   onBack: () => void
+  /** Narrow screens: opens the full-screen TOC. */
   onToc: () => void
+  /** Wide screens: whether the TOC side panel is showing, and the button that flips it. */
+  tocOpen: boolean
+  onToggleToc: () => void
   onPrefs: () => void
   onSeek: (fraction: number) => void
 }
@@ -21,6 +25,16 @@ export function ReaderChrome(p: ReaderChromeProps) {
         <IconButton icon="back" label="Về thư viện" onClick={() => p.onBack()} />
         <h1 class="min-w-0 flex-1 truncate font-serif text-fluid-base font-semibold">{p.title}</h1>
         <IconButton icon="toc" label="Mục lục" class="lg:hidden" onClick={() => p.onToc()} />
+        <IconButton
+          icon="toc"
+          label={p.tocOpen ? 'Ẩn mục lục' : 'Hiện mục lục'}
+          class="max-lg:hidden"
+          onClick={(e) => {
+            // As with a TOC pick: keep focus off the button so the arrow keys keep turning pages.
+            ;(e.currentTarget as HTMLElement).blur()
+            p.onToggleToc()
+          }}
+        />
         <IconButton icon="typography" label="Tuỳ chỉnh chữ" onClick={() => p.onPrefs()} />
       </header>
       <footer class="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 border-t border-current/10 bg-[var(--reader-bg)] px-gutter py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-[var(--reader-fg)]">

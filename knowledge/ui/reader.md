@@ -17,7 +17,10 @@ verified:
   handled by foliate. PC: ←/→/PageUp/PageDown/Space, Esc closes overlays.
 - Chrome (hidden by default after open): top bar = icon buttons back, title, TOC, typography ([icons](/ui/icons.md)); bottom bar =
   section title, % read, range slider (`goToFraction` on release).
-- TOC: full-screen sheet on narrow; left side panel (20 rem) on `lg` that stays open.
+- TOC: full-screen sheet on narrow, opened from the top bar and closed with ×. On `lg` a left
+  side panel (20 rem), shown by default; its × ("Đóng mục lục") or the top-bar button
+  ("Ẩn mục lục" / "Hiện mục lục") hides and shows it. The hidden state is a device preference in
+  `localStorage` key `reader.tocHidden`.
 - Typography sheet (icon buttons A−/A+, line-height, three theme icons): font size 80–160 % (step 10), line height 1.4/1.6/1.8, theme Sáng / Sepia / Tối.
   Stored in `settings` key `reader.prefs`; applied via `renderer.setStyles`.
 - Column width capped at ~40 rem on wide screens (`renderer` attribute `max-inline-size`).

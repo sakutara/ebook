@@ -18,6 +18,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  localStorage.clear()
   vi.useRealTimers()
   db.close()
 })
@@ -336,6 +337,7 @@ describe('reader page', () => {
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Về thư viện',
       'Mục lục',
+      'Ẩn mục lục',
       'Tuỳ chỉnh chữ',
     ])
     for (const b of buttons) {
@@ -359,6 +361,37 @@ describe('reader page', () => {
       expect((await loadPrefs(db)).fontScale).toBe(1.1)
     })
     expect(h.adapter.setPrefs).toHaveBeenCalledWith(expect.stringContaining('110%'))
+  })
+
+  it('reader.toc.collapse: the side panel hides from its close button and comes back from the top bar', async () => {
+    await db.books.put(bookRow())
+    const h = harness()
+    render(<ReaderPage id="b1" {...h.deps} />)
+    await waitReady(h)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng mục lục' }))
+    expect(screen.queryByRole('complementary', { name: 'Mục lục' })).toBeNull()
+
+    // The intro controls may or may not be up yet; make sure they are.
+    if (!document.querySelector('header')) tapCenter(h)
+    fireEvent.click(await screen.findByRole('button', { name: 'Hiện mục lục' }))
+    expect(screen.getByRole('complementary', { name: 'Mục lục' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Ẩn mục lục' }))
+    expect(screen.queryByRole('complementary', { name: 'Mục lục' })).toBeNull()
+  })
+
+  it('reader.toc.remember: a hidden side panel stays hidden the next time a book opens', async () => {
+    await db.books.put(bookRow())
+    const first = harness()
+    render(<ReaderPage id="b1" {...first.deps} />)
+    await waitReady(first)
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng mục lục' }))
+    cleanup()
+
+    const second = harness()
+    render(<ReaderPage id="b1" {...second.deps} />)
+    await waitReady(second)
+    expect(screen.queryByRole('complementary', { name: 'Mục lục' })).toBeNull()
   })
 
   it('reader.toc.go: selecting a TOC entry calls goTo with its href', async () => {

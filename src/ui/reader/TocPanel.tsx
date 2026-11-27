@@ -9,7 +9,7 @@ export interface TocEntry {
 export interface TocPanelProps {
   toc: TocEntry[]
   onSelect: (href: string) => void
-  /** Sheet only: closes the overlay (after a selection too). */
+  /** Sheet: closes the overlay (after a selection too). Panel: hides the side panel. */
   onClose?: () => void
   variant: 'sheet' | 'panel'
   /** Entries cannot be picked while the book is still opening (foliate drops navigation during restore). */
@@ -51,7 +51,17 @@ export function TocPanel(p: TocPanelProps) {
   }
 
   if (p.variant === 'panel') {
-    return <TocList items={p.toc} onPick={pick} disabled={p.disabled} />
+    return (
+      <>
+        <div class="flex items-center justify-between gap-2 px-gutter py-2">
+          <h2 class="font-serif text-fluid-lg font-semibold">Mục lục</h2>
+          <IconButton icon="close" label="Đóng mục lục" onClick={() => p.onClose?.()} />
+        </div>
+        <div class="flex-1 overflow-y-auto px-gutter pb-gutter">
+          <TocList items={p.toc} onPick={pick} disabled={p.disabled} />
+        </div>
+      </>
+    )
   }
 
   return (

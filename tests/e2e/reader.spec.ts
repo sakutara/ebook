@@ -169,6 +169,32 @@ test.describe('reader', () => {
     expect(maxInline).toBe('40rem')
   })
 
+  test('reader.toc.collapse: hiding the side panel widens the text area, survives reload and can be undone', async ({ page, context }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await mockR2(context, { books: FILES })
+    await openFromLibrary(page)
+    await goToTocEntry(page, 'Chương 5')
+    await expect.poll(() => chapterOf(page)).toBe(5)
+
+    const aside = page.getByRole('complementary', { name: 'Mục lục' })
+    const textArea = page.locator('foliate-view')
+    await page.getByRole('button', { name: 'Đóng mục lục', exact: true }).click()
+    await expect(aside).toBeHidden()
+    await expect.poll(async () => (await textArea.boundingBox())?.width).toBe(1280)
+    await expect.poll(() => chapterOf(page)).toBe(5)
+
+    await page.reload()
+    await expect.poll(() => marker(page)).not.toBeNull()
+    await expect(aside).toBeHidden()
+    const chapter = await chapterOf(page)
+
+    await showChrome(page)
+    await page.getByRole('button', { name: 'Hiện mục lục', exact: true }).click()
+    await expect(aside).toBeVisible()
+    await expect.poll(async () => (await textArea.boundingBox())?.width).toBe(960)
+    await expect.poll(() => chapterOf(page)).toBe(chapter)
+  })
+
   test('reader.prefs.apply: larger font and dark theme apply inside the reader and keep the chapter', async ({ page, context }) => {
     await mockR2(context, { books: FILES })
     await openFromLibrary(page)
